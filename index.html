@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>变电站黑盒报文视觉识别平台 Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div class="hero-copy-block">
+          <p class="eyebrow">Grid Control Demo / DL/T 634.5104 Inspired</p>
+          <h1>变电站黑盒报文视觉识别平台</h1>
+          <p class="hero-copy">
+            面向无开放接口监控画面，模拟抓屏、OCR/CV、规约字段解析、一次图联动和异常追溯的完整链路，支持多站点演示与真实接入预留。
+          </p>
+          <div class="hero-ribbon">
+            <span>规约轮廓：DL/T 634.5104 / IEC 60870-5-104</span>
+            <span>异常重点：失压、质量位异常、SOE 时间标记</span>
+          </div>
+        </div>
+
+        <div class="hero-stats">
+          <div class="stat-card">
+            <span class="stat-label">监控站点</span>
+            <strong id="stationCount">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">已解析报文</span>
+            <strong id="messageCount">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">异常事件</span>
+            <strong id="anomalyCount">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">当前刷新速度</span>
+            <strong id="speedLabel">标准</strong>
+          </div>
+        </div>
+      </header>
+
+      <section class="toolbar card">
+        <label class="toolbar-field">
+          <span>搜索变电站</span>
+          <input id="stationSearch" type="search" placeholder="输入站名，如：220kV 滨江站" />
+        </label>
+
+        <label class="toolbar-field">
+          <span>切换站点</span>
+          <select id="stationSelect"></select>
+        </label>
+
+        <div class="toolbar-field">
+          <span>报文刷新速度</span>
+          <div id="speedSegment" class="speed-segment" role="tablist" aria-label="报文刷新速度">
+            <button type="button" class="speed-option" data-speed-index="0">低频</button>
+            <button type="button" class="speed-option" data-speed-index="1">标准</button>
+            <button type="button" class="speed-option" data-speed-index="2">高频</button>
+          </div>
+        </div>
+
+        <label class="toolbar-field">
+          <span>状态筛选</span>
+          <select id="tableFilter">
+            <option value="all">全部设备</option>
+            <option value="abnormal">仅异常</option>
+            <option value="breaker">仅开关</option>
+            <option value="voltage">仅电压节点</option>
+          </select>
+        </label>
+
+        <div class="toolbar-actions">
+          <button id="toggleRunButton" class="primary">暂停模拟</button>
+          <button id="injectButton" class="secondary">手动注入事件</button>
+        </div>
+      </section>
+
+      <section class="overview-grid">
+        <article class="card station-list-card">
+          <div class="section-head">
+            <div>
+              <h2>站点监控概览</h2>
+              <p class="section-subtitle">快速切换站点，查看每站当前异常与最近动作</p>
+            </div>
+            <span id="liveIndicator" class="badge badge-live">实时中</span>
+          </div>
+          <div id="stationCards" class="station-cards"></div>
+        </article>
+
+        <article class="card anomaly-list-card">
+          <div class="section-head">
+            <div>
+              <h2>当前异常事件</h2>
+              <p class="section-subtitle">只要问题仍然存在，异常卡片就持续保留并可点击定位</p>
+            </div>
+            <span class="badge">横向异常卡</span>
+          </div>
+          <div id="anomalyCards" class="anomaly-cards"></div>
+        </article>
+      </section>
+
+      <main class="main-grid">
+        <section class="card diagram-card">
+          <div class="section-head">
+            <div>
+              <h2 id="diagramTitle">一次接线图</h2>
+              <p id="diagramSubtitle" class="section-subtitle"></p>
+            </div>
+            <span class="badge">双击放大/还原</span>
+          </div>
+          <div class="diagram-legend">
+            <span><i class="legend-dot legend-green"></i>正常开位 / 正常设备</span>
+            <span><i class="legend-dot legend-red"></i>合位 / 带动作设备</span>
+            <span><i class="legend-dot legend-yellow"></i>质量位异常，慢闪提示</span>
+            <span><i class="legend-dot legend-orange"></i>危急状态，快速闪烁</span>
+          </div>
+          <div id="diagramWrap" class="diagram-wrap">
+            <svg id="diagramSvg" viewBox="0 0 860 560" aria-label="变电站一次接线图"></svg>
+            <div id="nodeTooltip" class="node-tooltip" hidden></div>
+          </div>
+        </section>
+
+        <article class="card feed-card">
+          <div class="section-head">
+            <div>
+              <h2>模拟刷新报文</h2>
+              <p class="section-subtitle">位于一次接线图和结构化状态表中间，模拟持续刷新的黑盒报文</p>
+            </div>
+            <span id="cvMeta" class="badge">等待首条事件</span>
+          </div>
+          <div class="feed-panels single-column">
+            <div class="feed-panel">
+              <div class="panel-head">
+                <h3>黑盒报文区</h3>
+                <span>模拟监控日志滚动输出</span>
+              </div>
+              <div id="rawFeed" class="raw-feed"></div>
+            </div>
+
+            <div class="feed-panel">
+              <div class="panel-head">
+                <h3>识别结果区</h3>
+                <span>CV / OCR / 规约解析</span>
+              </div>
+              <div id="parsedFeed" class="parsed-feed"></div>
+            </div>
+          </div>
+        </article>
+
+        <section class="card table-card">
+          <div class="section-head">
+            <div>
+              <h2>结构化状态表</h2>
+              <p class="section-subtitle">围绕“能快速看清每个设备状态”优化显示密度</p>
+            </div>
+            <span class="badge">状态总览</span>
+          </div>
+          <div class="table-summary">
+            <div class="summary-item">
+              <span>正常</span>
+              <strong id="normalCount">0</strong>
+            </div>
+            <div class="summary-item">
+              <span>告警</span>
+              <strong id="warningCount">0</strong>
+            </div>
+            <div class="summary-item">
+              <span>危急</span>
+              <strong id="criticalCount">0</strong>
+            </div>
+          </div>
+          <div class="table-wrap tall">
+            <table>
+              <thead>
+                <tr>
+                  <th>设备</th>
+                  <th>间隔</th>
+                  <th>IOA</th>
+                  <th>当前状态</th>
+                  <th>等级</th>
+                  <th>更新时间</th>
+                </tr>
+              </thead>
+              <tbody id="statusTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+
+      <section class="bottom-grid">
+        <div class="side-stack">
+          <article class="card process-card">
+            <div class="section-head">
+              <div>
+                <h2>识别过程可视化</h2>
+                <p class="section-subtitle">展示当前最新一条报文在视觉识别链路中的处理状态</p>
+              </div>
+              <span id="feedStatus" class="badge badge-cv">CV 监听中</span>
+            </div>
+            <div id="processBoard" class="process-board"></div>
+          </article>
+
+          <article class="card roi-card">
+            <div class="section-head">
+              <div>
+                <h2>ROI 配置面板</h2>
+                <p class="section-subtitle">真实 OpenCV 接入时建议的区域划分</p>
+              </div>
+              <span class="badge">预留</span>
+            </div>
+            <div id="roiList" class="roi-list"></div>
+          </article>
+
+          <article class="card integration-card">
+            <div class="section-head">
+              <div>
+                <h2>CV 接入预留</h2>
+                <p class="section-subtitle">前端已按真实服务接口组织占位结构</p>
+              </div>
+              <span class="badge">API Stub</span>
+            </div>
+            <div class="integration-list">
+              <div class="integration-item">
+                <strong>截图采集</strong>
+                <code>POST /api/cv/frame/capture</code>
+              </div>
+              <div class="integration-item">
+                <strong>OCR 与图元检测</strong>
+                <code>POST /api/cv/frame/analyze</code>
+              </div>
+              <div class="integration-item">
+                <strong>状态映射</strong>
+                <code>POST /api/event/map</code>
+              </div>
+            </div>
+            <div class="payload-block">
+              <div class="panel-head">
+                <h3>最近一次推送样例</h3>
+                <span>JSON Payload</span>
+              </div>
+              <pre id="apiPayload" class="payload-preview"></pre>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
