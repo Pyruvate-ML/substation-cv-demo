@@ -7,17 +7,71 @@ const speedProfiles = [
 ];
 
 const processStepTemplate = [
-  { id: "capture", title: "截图采集", desc: "抓取监控画面 ROI" },
-  { id: "ocr", title: "OCR / 图元识别", desc: "提取文本与颜色状态" },
-  { id: "parse", title: "规约解析", desc: "映射 CA / IOA / TypeID / QDS" },
-  { id: "map", title: "状态回写", desc: "同步一次图、表格与事件流" },
+  { id: "capture", title: "屏幕抓取", desc: "从报文屏持续截取最新画面", screen: "屏幕 02" },
+  { id: "detect", title: "区域定位", desc: "框出需要识别的报文行与关键字段", screen: "CV" },
+  { id: "ocr", title: "内容识别", desc: "读出设备名、数值、状态和时间", screen: "CV" },
+  { id: "parse", title: "状态解释", desc: "把识别结果转成设备状态含义", screen: "CV" },
+  { id: "sync", title: "结果展示", desc: "同步更新接线图和状态表", screen: "屏幕 01 / 03" },
 ];
 
-const roiRegions = [
-  { name: "黑盒报文区", x: 1120, y: 124, w: 508, h: 408, enabled: true, purpose: "滚动报文 OCR" },
-  { name: "一次接线图区", x: 112, y: 132, w: 840, h: 560, enabled: true, purpose: "图元颜色与闪烁检测" },
-  { name: "状态表区", x: 960, y: 544, w: 668, h: 392, enabled: true, purpose: "结构化状态对照" },
-  { name: "悬浮提示区", x: 320, y: 180, w: 320, h: 220, enabled: false, purpose: "按需二次采样" },
+const processDemoScenarios = [
+  {
+    id: "demo-breaker-close",
+    title: "案例一：进线开关合位",
+    stationName: "110kV 城南站",
+    sourceScreen: "屏幕 02 / 报文屏幕",
+    sampleText: "报文样本显示“101 进线开关 双点遥信变位 合位”，系统从滚动报文中抓到这条变化。",
+    resultText: "识别后确认 101 进线开关由分位转为合位，并同步更新到识别后的接线图和状态表。",
+    resultTags: ["CA 1101", "IOA 12001", "M_DP_TB_1", "正常"],
+    captureTitle: "抓取滚动报文窗口",
+    captureLines: ["#0031 110kV 城南站", "101 进线开关 双点值 2 / 合位", "时间 14:31:08"],
+    detectBoxes: [
+      { cls: "detect-box-a", label: "站点" },
+      { cls: "detect-box-b", label: "状态" },
+      { cls: "detect-box-c", label: "设备行" },
+    ],
+    ocrLines: ["站点: 110kV 城南站", "设备: 101 进线开关", "状态: 双点值 2 / 合位", "时间: 14:31:08"],
+    parseChips: ["开关类", "合位", "正常", "SOE 记录"],
+    syncCards: ["接线图: 红色合位圈", "状态表: 合位", "异常区: 不产生告警"],
+  },
+  {
+    id: "demo-voltage-zero",
+    title: "案例二：母线电压跌至 0",
+    stationName: "220kV 滨江站",
+    sourceScreen: "屏幕 02 / 报文屏幕",
+    sampleText: "报文样本显示“主母线电压 遥测变化 0kV”，系统抓到失压信息并进入重点识别流程。",
+    resultText: "识别后确认主母线电压跌落至 0kV，统一状态中心将其标记为危急并在接线图上橙色闪烁。",
+    resultTags: ["CA 2208", "IOA 23001", "M_ME_TF_1", "危急"],
+    captureTitle: "抓取遥测变化报文",
+    captureLines: ["#0048 220kV 滨江站", "主母线电压 VALUE=0.0kV", "QDS=IV0 NT0 SB0 BL0"],
+    detectBoxes: [
+      { cls: "detect-box-a", label: "站点" },
+      { cls: "detect-box-b", label: "数值" },
+      { cls: "detect-box-c", label: "质量位" },
+    ],
+    ocrLines: ["站点: 220kV 滨江站", "设备: 主母线电压", "数值: 0.0kV", "质量位: IV0 NT0 SB0 BL0"],
+    parseChips: ["电压类", "0kV", "危急", "立即告警"],
+    syncCards: ["接线图: 橙色快闪", "状态表: 危急", "异常区: 持续保留"],
+  },
+  {
+    id: "demo-qds-warning",
+    title: "案例三：质量位异常告警",
+    stationName: "35kV 北郊站",
+    sourceScreen: "屏幕 02 / 报文屏幕",
+    sampleText: "报文样本显示“402 联络开关 质量位异常”，系统识别到状态值正常但质量位需要人工复核。",
+    resultText: "识别后确认 402 联络开关状态未跳变，但质量位异常，需要在结果区展示为黄色告警并保留复核提示。",
+    resultTags: ["CA 3506", "IOA 32018", "M_DP_TB_1", "告警"],
+    captureTitle: "抓取质量位异常报文",
+    captureLines: ["#0065 35kV 北郊站", "402 联络开关 DPI=1 / 分位", "QDS=IV0 NT0 SB1 BL0"],
+    detectBoxes: [
+      { cls: "detect-box-a", label: "设备名" },
+      { cls: "detect-box-b", label: "DPI" },
+      { cls: "detect-box-c", label: "QDS" },
+    ],
+    ocrLines: ["站点: 35kV 北郊站", "设备: 402 联络开关", "状态: 双点值 1 / 分位", "质量位: SB1"],
+    parseChips: ["开关类", "分位", "告警", "建议复核"],
+    syncCards: ["接线图: 黄色慢闪", "状态表: 告警", "异常区: 持续保留"],
+  },
 ];
 
 const protocolCatalog = {
@@ -123,11 +177,18 @@ const appState = {
   process: {
     seq: null,
     stationName: "等待事件",
+    sampleText: "等待首条报文进入演示链路",
+    sourceScreen: "屏幕 02 / 报文屏幕",
+    resultText: "识别结果将同步展示在一次接线图和状态表中",
+    resultTags: ["等待事件"],
     stages: processStepTemplate.map((step) => ({ ...step, status: "pending" })),
   },
   loopHandle: null,
   pulseHandle: null,
   processTimers: [],
+  processDemoScenarioIndex: 0,
+  processDemoPhase: 0,
+  processDemoHandle: null,
   diagramZoomed: false,
   isDraggingDiagram: false,
   dragStartX: 0,
@@ -152,6 +213,9 @@ const elements = {
   liveIndicator: document.querySelector("#liveIndicator"),
   feedStatus: document.querySelector("#feedStatus"),
   processBoard: document.querySelector("#processBoard"),
+  sourceDiagramScreen: document.querySelector("#sourceDiagramScreen"),
+  sourceMessageScreen: document.querySelector("#sourceMessageScreen"),
+  sourceTableScreen: document.querySelector("#sourceTableScreen"),
   diagramTitle: document.querySelector("#diagramTitle"),
   diagramSubtitle: document.querySelector("#diagramSubtitle"),
   diagramWrap: document.querySelector("#diagramWrap"),
@@ -165,8 +229,8 @@ const elements = {
   warningCount: document.querySelector("#warningCount"),
   criticalCount: document.querySelector("#criticalCount"),
   anomalyCards: document.querySelector("#anomalyCards"),
-  roiList: document.querySelector("#roiList"),
-  apiPayload: document.querySelector("#apiPayload"),
+  processNarrative: document.querySelector("#processNarrative"),
+  processResult: document.querySelector("#processResult"),
 };
 
 function formatTime(date) {
@@ -371,6 +435,10 @@ function updateProcessState(message, stageIndex) {
   appState.process = {
     seq: message.seq,
     stationName: message.stationName,
+    sampleText: `${message.humanText}；CV 正在从滚动报文中提取设备、状态和时间字段。`,
+    sourceScreen: "屏幕 02 / 报文屏幕",
+    resultText: "识别尚未完成，等待状态解释并同步到接线图与状态表。",
+    resultTags: ["报文样本", `IOA ${message.ioa}`, message.typeName],
     stages: processStepTemplate.map((step, index) => ({
       ...step,
       status: index < stageIndex ? "completed" : index === stageIndex ? "active" : "pending",
@@ -380,9 +448,24 @@ function updateProcessState(message, stageIndex) {
 }
 
 function completeProcessState(message) {
+  const station = appState.stations.find((item) => item.id === message.stationId);
+  const node = station?.nodes.find((item) => item.id === message.nodeId);
+
   appState.process = {
     seq: message.seq,
     stationName: message.stationName,
+    sampleText: `${message.stationName} 的 ${message.humanText} 已完成识别，系统已经从报文屏中读出关键设备状态。`,
+    sourceScreen: "屏幕 02 / 报文屏幕",
+    resultText:
+      message.kind === "breaker"
+        ? `${message.stationName} ${message.bay} 的 ${message.nextStatus === "closed" ? "开关合位" : "开关分位"} 已同步到接线图和状态表。`
+        : `${message.stationName} ${message.bay} 的电压值 ${message.nextValue}${node?.unit ?? "kV"} 已同步到接线图和状态表。`,
+    resultTags: [
+      `CA ${message.stationCa}`,
+      `IOA ${message.ioa}`,
+      severityLabel(message.severity),
+      message.typeName,
+    ],
     stages: processStepTemplate.map((step) => ({ ...step, status: "completed" })),
   };
   renderProcessBoard();
@@ -590,43 +673,257 @@ function removeActiveAnomaly(stationId, nodeId) {
   );
 }
 
+function getScenarioSeverityTone(scenario) {
+  if (scenario.resultTags.includes("危急")) return "critical";
+  if (scenario.resultTags.includes("告警")) return "warning";
+  return "normal";
+}
+
+function getScenarioShortLine(scenario) {
+  return scenario.captureLines[1] ?? scenario.captureLines[0] ?? "等待示例";
+}
+
+function buildMessageThumbnail(lines) {
+  return `
+    <div class="process-thumb process-thumb-message">
+      <div class="process-thumb-bar"></div>
+      <div class="process-thumb-lines">
+        ${lines.map((line) => `<div class="process-thumb-line">${line}</div>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function buildSourceDiagramPreview(station) {
+  const breakers = getMonitoredNodes(station).filter((node) => node.kind === "breaker").slice(0, 4);
+  const voltages = getMonitoredNodes(station).filter((node) => node.kind === "voltage").slice(0, 2);
+  const branchXs = [116, 184, 252, 320];
+
+  const breakerMarkup = breakers
+    .map((node, index) => {
+      const x = branchXs[index];
+      const color = node.alertLevel === "critical" ? "#fb923c" : node.alertLevel === "warning" ? "#facc15" : node.status === "closed" ? "#ef4444" : "#22c55e";
+      const label = node.label.split(" ")[0];
+      return `
+        <text x="${x - 18}" y="34" fill="#ff6767" font-size="10" font-weight="700">${label}</text>
+        <text x="${x - 14}" y="50" fill="#7bf7a7" font-size="9">${node.status === "closed" ? "1" : "0"}.0</text>
+        <line x1="${x}" y1="56" x2="${x}" y2="134" stroke="#eef4ff" stroke-width="2" />
+        <circle cx="${x}" cy="86" r="8" fill="none" stroke="${color}" stroke-width="2.2" />
+        <line x1="${x - 5}" y1="86" x2="${x + 5}" y2="86" stroke="${color}" stroke-width="2" stroke-linecap="round" />
+      `;
+    })
+    .join("");
+
+  const voltageMarkup = voltages
+    .map((node, index) => {
+      const x = index === 0 ? 172 : 286;
+      const valueColor = node.status === "zero" ? "#fb923c" : "#34d2ff";
+      return `
+        <rect x="${x - 28}" y="164" width="56" height="28" rx="8" fill="rgba(15,35,58,0.88)" stroke="${valueColor}" stroke-width="2" />
+        <text x="${x}" y="182" fill="#eef4ff" font-size="11" font-weight="700" text-anchor="middle">${node.value}${node.unit}</text>
+        <text x="${x}" y="212" fill="#8fc2f2" font-size="9" text-anchor="middle">${node.bay}</text>
+      `;
+    })
+    .join("");
+
+  return `
+    <svg class="source-diagram-svg" viewBox="0 0 420 248" aria-hidden="true">
+      <rect x="0" y="0" width="420" height="248" rx="16" fill="#02070d" />
+      <rect x="12" y="12" width="84" height="76" rx="10" fill="none" stroke="#28e06c" stroke-dasharray="4 3" />
+      <text x="18" y="30" fill="#d7efff" font-size="10" font-weight="700">${station.name}</text>
+      <text x="18" y="48" fill="#88f7ab" font-size="9">一次接线图原始画面</text>
+      <line x1="94" y1="56" x2="338" y2="56" stroke="#eef4ff" stroke-width="2.4" />
+      <line x1="94" y1="136" x2="338" y2="136" stroke="#eef4ff" stroke-width="2.4" />
+      ${breakerMarkup}
+      ${voltageMarkup}
+      <line x1="356" y1="32" x2="356" y2="208" stroke="#28e06c" stroke-width="1.6" stroke-dasharray="5 4" />
+      <text x="386" y="86" fill="#ff6767" font-size="16" font-weight="700" transform="rotate(90 386 86)">${station.name}</text>
+    </svg>
+  `;
+}
+
+function getCurrentProcessDemo() {
+  return processDemoScenarios[appState.processDemoScenarioIndex];
+}
+
+function getProcessVisualMarkup(stage, scenario) {
+  const tone = getScenarioSeverityTone(scenario);
+  const zoomLine = getScenarioShortLine(scenario);
+
+  if (stage.id === "capture") {
+    return `
+      <div class="process-visual process-visual-capture">
+        <div class="process-scene">
+          ${buildMessageThumbnail(scenario.captureLines)}
+          <div class="process-scan-overlay"></div>
+          <div class="process-caption">从上到下循环扫描源屏缩略图，持续截取报文</div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (stage.id === "detect") {
+    return `
+      <div class="process-visual process-visual-detect">
+        <div class="process-scene detect-scene">
+          <div class="process-thumb-wrap">
+            ${buildMessageThumbnail(scenario.captureLines)}
+            <span class="roi-frame"></span>
+          </div>
+          <div class="process-zoom-card tone-${tone}">
+            <div class="zoom-label">定位区域放大</div>
+            <div class="zoom-line">${zoomLine}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (stage.id === "ocr") {
+    return `
+      <div class="process-visual process-visual-ocr">
+        <div class="process-scene ocr-scene">
+          <div class="process-zoom-card tone-${tone}">
+            <div class="zoom-label">局部截图</div>
+            <div class="zoom-line">${zoomLine}</div>
+          </div>
+          <div class="ocr-sheet">
+            ${scenario.ocrLines
+              .map((line, index) => `<div class="ocr-sheet-line line-${index + 1}">${line}</div>`)
+              .join("")}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (stage.id === "parse") {
+    return `
+      <div class="process-visual process-visual-parse">
+        <div class="process-scene parse-scene">
+          <div class="parse-raw-block">
+            ${scenario.ocrLines.slice(0, 3).map((line) => `<div class="parse-raw-line">${line}</div>`).join("")}
+          </div>
+          <div class="parse-arrow">→</div>
+          <div class="parse-chip-stack">
+            ${scenario.parseChips.map((chip) => `<span class="process-parse-chip">${chip}</span>`).join("")}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="process-visual process-visual-sync">
+      <div class="process-scene sync-scene">
+        ${scenario.syncCards
+          .map(
+            (card, index) => `
+          <div class="sync-card tone-${tone} delay-${index + 1}">
+            <div class="sync-card-title">${index === 0 ? "接线图" : index === 1 ? "报文结果" : "状态表"}</div>
+            <span>${card}</span>
+          </div>
+        `
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderProcessBoard() {
-  elements.processBoard.innerHTML = appState.process.stages
+  const scenario = getCurrentProcessDemo();
+  const currentPhase = appState.processDemoPhase;
+
+  elements.processBoard.innerHTML = processStepTemplate
     .map(
       (stage, index) => `
-      <article class="process-step process-${stage.status}">
+      <article class="process-step process-${index < currentPhase ? "completed" : index === currentPhase ? "active" : "pending"}">
         <div class="process-head">
           <span class="process-index">0${index + 1}</span>
-          <span class="process-status">${stage.status === "active" ? "处理中" : stage.status === "completed" ? "已完成" : "等待"}</span>
+          <span class="process-status">${index === currentPhase ? "处理中" : index < currentPhase ? "已完成" : "等待"}</span>
         </div>
         <strong>${stage.title}</strong>
         <p>${stage.desc}</p>
-        <div class="process-station">${appState.process.stationName}</div>
+        ${getProcessVisualMarkup(stage, scenario)}
+        <div class="process-screen">${stage.screen}</div>
       </article>
     `
     )
     .join("");
+
+  elements.processNarrative.innerHTML = `
+    <div class="process-copy">
+      <strong>${scenario.title}</strong>
+      <div>站点：${scenario.stationName}</div>
+      <div>来源屏幕：${scenario.sourceScreen}</div>
+      <div>${scenario.sampleText}</div>
+    </div>
+  `;
+
+  elements.processResult.innerHTML = `
+    <div class="process-copy">
+      <strong>统一状态中心</strong>
+      <div>${scenario.resultText}</div>
+    </div>
+    <div class="process-tags">
+      ${scenario.resultTags.map((tag) => `<span class="process-tag">${tag}</span>`).join("")}
+    </div>
+  `;
 }
 
-function renderRoiList() {
-  elements.roiList.innerHTML = roiRegions
-    .map(
-      (roi) => `
-      <article class="roi-item">
-        <div class="panel-head">
-          <strong>${roi.name}</strong>
-          <span class="badge ${roi.enabled ? "badge-live" : ""}">${roi.enabled ? "启用" : "待定"}</span>
+function startProcessDemoLoop() {
+  if (appState.processDemoHandle) {
+    window.clearInterval(appState.processDemoHandle);
+  }
+
+  appState.processDemoHandle = window.setInterval(() => {
+    if (appState.processDemoPhase >= processStepTemplate.length - 1) {
+      appState.processDemoPhase = 0;
+      appState.processDemoScenarioIndex = (appState.processDemoScenarioIndex + 1) % processDemoScenarios.length;
+    } else {
+      appState.processDemoPhase += 1;
+    }
+    renderProcessBoard();
+  }, 1700);
+}
+
+function renderSourceScreens() {
+  const station = getSelectedStation();
+  const monitoredNodes = getMonitoredNodes(station);
+  const latestMessages = appState.rawFeed.slice(0, 4);
+
+  elements.sourceDiagramScreen.innerHTML = `
+    ${buildSourceDiagramPreview(station)}
+  `;
+
+  elements.sourceMessageScreen.innerHTML =
+    latestMessages
+      .map(
+        (message) => `
+      <div class="source-message-line">
+        [${formatTime(message.timestamp)}] ${message.stationName}<br />
+        ${message.humanText}
+      </div>
+    `
+      )
+      .join("") || `<div class="source-message-line">等待报文屏产生滚动内容...</div>`;
+
+  elements.sourceTableScreen.innerHTML =
+    monitoredNodes
+      .slice(0, 5)
+      .map(
+        (node) => `
+      <article class="source-table-row">
+        <div class="source-table-main">
+          <span class="source-state-dot ${node.alertLevel === "warning" ? "warning" : node.alertLevel === "critical" ? "critical" : ""}"></span>
+          <span>${node.label}</span>
         </div>
-        <p>${roi.purpose}</p>
-        <code>x=${roi.x}, y=${roi.y}, w=${roi.w}, h=${roi.h}</code>
+        <div class="source-table-meta">${describeNodeStatus(node)}</div>
       </article>
     `
-    )
-    .join("");
-}
-
-function renderApiPayload() {
-  elements.apiPayload.textContent = JSON.stringify(appState.apiPayload, null, 2);
+      )
+      .join("");
 }
 
 function describeNodeStatus(node) {
@@ -773,8 +1070,8 @@ function getLabelLayout(node) {
 
 function renderDiagram() {
   const station = getSelectedStation();
-  elements.diagramTitle.textContent = `${station.name} 一次接线图`;
-  elements.diagramSubtitle.textContent = `${station.region} · CA ${station.ca} · 支持开关 / 刀闸 / 主变 / 电容器 / 电压节点可视表达`;
+  elements.diagramTitle.textContent = `${station.name} 识别后接线图`;
+  elements.diagramSubtitle.textContent = `${station.region} · CA ${station.ca} · 将源屏中的图元状态还原为可交互接线图结果`;
 
   const svg = elements.diagramSvg;
   svg.innerHTML = "";
@@ -983,10 +1280,8 @@ function renderStatusTable() {
         <td>${node.label}</td>
         <td>${node.bay}</td>
         <td>${node.ioa}</td>
-        <td>${node.typeId} / ${node.typeName}</td>
         <td><span class="state-chip ${severityClass(node.alertLevel)}">${describeNodeStatus(node)}</span></td>
         <td><span class="severity-pill ${severityClass(node.alertLevel)}">${severityLabel(node.alertLevel)}</span></td>
-        <td>${node.qds}</td>
         <td>${formatTime(node.lastUpdatedAt)}</td>
       </tr>
     `
@@ -1024,7 +1319,7 @@ function renderAnomalyCards() {
 }
 
 function updateCvMeta(entry) {
-  elements.cvMeta.textContent = `最近识别 ${entry.stationName} · IOA ${entry.ioa} · ${severityLabel(entry.severity)}`;
+  elements.cvMeta.textContent = `结果 02 · 最近识别 ${entry.stationName} · IOA ${entry.ioa} · ${severityLabel(entry.severity)}`;
 }
 
 function syncView() {
@@ -1033,12 +1328,11 @@ function syncView() {
   renderStationCards(elements.stationSearch.value);
   renderAnomalyCards();
   renderProcessBoard();
+  renderSourceScreens();
   renderDiagram();
   renderRawFeed();
   renderParsedFeed();
   renderStatusTable();
-  renderRoiList();
-  renderApiPayload();
 }
 
 function parseMessage(message) {
@@ -1102,7 +1396,7 @@ function parseMessage(message) {
     state: describeNodeStatus(node),
     qds: node.qds,
     detectedAt: formatCp56Time(parsedAt),
-    roiHints: roiRegions.filter((roi) => roi.enabled).map((roi) => roi.name),
+    screenSources: ["屏幕 01 / 接线图", "屏幕 02 / 报文", "屏幕 03 / 状态表"],
   };
 
   completeProcessState(message);
@@ -1195,6 +1489,7 @@ function init() {
   document.body.appendChild(elements.nodeTooltip);
   attachEvents();
   syncView();
+  startProcessDemoLoop();
   scheduleLoop();
 }
 

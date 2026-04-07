@@ -16,14 +16,14 @@
     <div class="app-shell">
       <header class="hero">
         <div class="hero-copy-block">
-          <p class="eyebrow">Grid Control Demo / DL/T 634.5104 Inspired</p>
+          <p class="eyebrow">业务演示版 / 面向黑盒监控系统视觉接入</p>
           <h1>变电站黑盒报文视觉识别平台</h1>
           <p class="hero-copy">
-            面向无开放接口监控画面，模拟抓屏、OCR/CV、规约字段解析、一次图联动和异常追溯的完整链路，支持多站点演示与真实接入预留。
+            面向无开放接口、不可直接对接的保密监控系统，通过视觉识别方式采集三块独立屏幕中的关键信息，统一还原站内设备状态、异常变化和处置线索，便于向业务侧直观说明方案价值。
           </p>
           <div class="hero-ribbon">
-            <span>规约轮廓：DL/T 634.5104 / IEC 60870-5-104</span>
-            <span>异常重点：失压、质量位异常、SOE 时间标记</span>
+            <span>业务价值：不改原系统，也能拿到设备状态</span>
+            <span>展示重点：三屏抓取、CV 识别、统一状态还原</span>
           </div>
         </div>
 
@@ -107,14 +107,100 @@
         </article>
       </section>
 
+      <section class="source-grid">
+        <article class="screen-card source-monitor">
+          <div class="monitor-bezel">
+            <div class="monitor-surface">
+              <div class="section-head compact">
+                <div>
+                  <h2>仿真源屏 01</h2>
+                  <p class="section-subtitle">模拟原系统中的一次接线图屏幕</p>
+                </div>
+                <span class="badge">抓屏来源</span>
+              </div>
+              <div class="screen-chrome">
+                <div class="screen-chrome-left">
+                  <span class="screen-dot"></span>
+                  <span class="screen-dot"></span>
+                  <span class="screen-dot"></span>
+                  <strong>原系统终端 A</strong>
+                </div>
+                <div class="screen-chrome-right">一次接线图原始画面</div>
+              </div>
+              <div id="sourceDiagramScreen" class="source-screen source-diagram-screen"></div>
+            </div>
+          </div>
+          <div class="monitor-stand" aria-hidden="true">
+            <span class="monitor-neck"></span>
+            <span class="monitor-base"></span>
+          </div>
+        </article>
+
+        <article class="screen-card source-monitor">
+          <div class="monitor-bezel">
+            <div class="monitor-surface">
+              <div class="section-head compact">
+                <div>
+                  <h2>仿真源屏 02</h2>
+                  <p class="section-subtitle">模拟原系统中的滚动报文屏幕</p>
+                </div>
+                <span class="badge">抓屏来源</span>
+              </div>
+              <div class="screen-chrome">
+                <div class="screen-chrome-left">
+                  <span class="screen-dot"></span>
+                  <span class="screen-dot"></span>
+                  <span class="screen-dot"></span>
+                  <strong>原系统终端 B</strong>
+                </div>
+                <div class="screen-chrome-right">黑盒报文原始画面</div>
+              </div>
+              <div id="sourceMessageScreen" class="source-screen source-message-screen"></div>
+            </div>
+          </div>
+          <div class="monitor-stand" aria-hidden="true">
+            <span class="monitor-neck"></span>
+            <span class="monitor-base"></span>
+          </div>
+        </article>
+
+        <article class="screen-card source-monitor">
+          <div class="monitor-bezel">
+            <div class="monitor-surface">
+              <div class="section-head compact">
+                <div>
+                  <h2>仿真源屏 03</h2>
+                  <p class="section-subtitle">模拟原系统中的状态表屏幕</p>
+                </div>
+                <span class="badge">抓屏来源</span>
+              </div>
+              <div class="screen-chrome">
+                <div class="screen-chrome-left">
+                  <span class="screen-dot"></span>
+                  <span class="screen-dot"></span>
+                  <span class="screen-dot"></span>
+                  <strong>原系统终端 C</strong>
+                </div>
+                <div class="screen-chrome-right">状态表原始画面</div>
+              </div>
+              <div id="sourceTableScreen" class="source-screen source-table-screen"></div>
+            </div>
+          </div>
+          <div class="monitor-stand" aria-hidden="true">
+            <span class="monitor-neck"></span>
+            <span class="monitor-base"></span>
+          </div>
+        </article>
+      </section>
+
       <main class="main-grid">
-        <section class="card diagram-card">
+        <section class="card diagram-card result-card">
           <div class="section-head">
             <div>
-              <h2 id="diagramTitle">一次接线图</h2>
+              <h2 id="diagramTitle">识别后的接线图结果</h2>
               <p id="diagramSubtitle" class="section-subtitle"></p>
             </div>
-            <span class="badge">双击放大/还原</span>
+            <span class="badge">结果 01 · 双击放大</span>
           </div>
           <div class="diagram-legend">
             <span><i class="legend-dot legend-green"></i>正常开位 / 正常设备</span>
@@ -128,40 +214,40 @@
           </div>
         </section>
 
-        <article class="card feed-card">
+        <article class="card feed-card result-card">
           <div class="section-head">
             <div>
-              <h2>模拟刷新报文</h2>
-              <p class="section-subtitle">位于一次接线图和结构化状态表中间，模拟持续刷新的黑盒报文</p>
+              <h2>识别后的报文结果</h2>
+              <p class="section-subtitle">展示从原始报文屏中识别出的内容和规约字段理解</p>
             </div>
-            <span id="cvMeta" class="badge">等待首条事件</span>
+            <span id="cvMeta" class="badge">结果 02 · 等待首条事件</span>
           </div>
           <div class="feed-panels single-column">
             <div class="feed-panel">
               <div class="panel-head">
-                <h3>黑盒报文区</h3>
-                <span>模拟监控日志滚动输出</span>
+                <h3>原始滚动报文摘录</h3>
+                <span>识别输入样本</span>
               </div>
               <div id="rawFeed" class="raw-feed"></div>
             </div>
 
             <div class="feed-panel">
               <div class="panel-head">
-                <h3>识别结果区</h3>
-                <span>CV / OCR / 规约解析</span>
+                <h3>CV 识别理解结果</h3>
+                <span>OCR / 规约字段解析</span>
               </div>
               <div id="parsedFeed" class="parsed-feed"></div>
             </div>
           </div>
         </article>
 
-        <section class="card table-card">
+        <section class="card table-card result-card">
           <div class="section-head">
             <div>
-              <h2>结构化状态表</h2>
-              <p class="section-subtitle">围绕“能快速看清每个设备状态”优化显示密度</p>
+              <h2>识别后的状态表结果</h2>
+              <p class="section-subtitle">将三块源屏中的有效信息融合为统一的结构化设备状态</p>
             </div>
-            <span class="badge">状态总览</span>
+            <span class="badge">结果 03 · 状态总览</span>
           </div>
           <div class="table-summary">
             <div class="summary-item">
@@ -196,60 +282,26 @@
       </main>
 
       <section class="bottom-grid">
-        <div class="side-stack">
-          <article class="card process-card">
-            <div class="section-head">
-              <div>
-                <h2>识别过程可视化</h2>
-                <p class="section-subtitle">展示当前最新一条报文在视觉识别链路中的处理状态</p>
-              </div>
-              <span id="feedStatus" class="badge badge-cv">CV 监听中</span>
+        <article class="card process-demo-card">
+          <div class="section-head">
+            <div>
+              <h2>CV 识别动态演示</h2>
+              <p class="section-subtitle">以最新一条报文为例，向非技术人员展示“从抓屏到看懂状态”的完整过程</p>
             </div>
-            <div id="processBoard" class="process-board"></div>
-          </article>
-
-          <article class="card roi-card">
-            <div class="section-head">
-              <div>
-                <h2>ROI 配置面板</h2>
-                <p class="section-subtitle">真实 OpenCV 接入时建议的区域划分</p>
-              </div>
-              <span class="badge">预留</span>
-            </div>
-            <div id="roiList" class="roi-list"></div>
-          </article>
-
-          <article class="card integration-card">
-            <div class="section-head">
-              <div>
-                <h2>CV 接入预留</h2>
-                <p class="section-subtitle">前端已按真实服务接口组织占位结构</p>
-              </div>
-              <span class="badge">API Stub</span>
-            </div>
-            <div class="integration-list">
-              <div class="integration-item">
-                <strong>截图采集</strong>
-                <code>POST /api/cv/frame/capture</code>
-              </div>
-              <div class="integration-item">
-                <strong>OCR 与图元检测</strong>
-                <code>POST /api/cv/frame/analyze</code>
-              </div>
-              <div class="integration-item">
-                <strong>状态映射</strong>
-                <code>POST /api/event/map</code>
-              </div>
-            </div>
-            <div class="payload-block">
-              <div class="panel-head">
-                <h3>最近一次推送样例</h3>
-                <span>JSON Payload</span>
-              </div>
-              <pre id="apiPayload" class="payload-preview"></pre>
-            </div>
-          </article>
-        </div>
+            <span id="feedStatus" class="badge badge-cv">CV 监听中</span>
+          </div>
+          <div id="processBoard" class="process-board"></div>
+          <div class="process-brief">
+            <article class="process-brief-card">
+              <h3>当前演示样本</h3>
+              <div id="processNarrative" class="process-narrative"></div>
+            </article>
+            <article class="process-brief-card">
+              <h3>识别后的统一结果</h3>
+              <div id="processResult" class="process-result"></div>
+            </article>
+          </div>
+        </article>
       </section>
     </div>
 
