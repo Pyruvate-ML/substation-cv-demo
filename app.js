@@ -225,6 +225,7 @@ const elements = {
   parsedFeed: document.querySelector("#parsedFeed"),
   cvMeta: document.querySelector("#cvMeta"),
   statusTableBody: document.querySelector("#statusTableBody"),
+  tableWrap: document.querySelector(".table-wrap.tall"),
   normalCount: document.querySelector("#normalCount"),
   warningCount: document.querySelector("#warningCount"),
   criticalCount: document.querySelector("#criticalCount"),
@@ -549,21 +550,74 @@ function centerDiagramOnNode(nodeId) {
   elements.diagramWrap.scrollTo({
     left,
     top,
-    behavior: "smooth",
+    behavior: "auto",
   });
 }
 
 function focusNodeFromTimeline(stationId, nodeId) {
-  appState.selectedStationId = stationId;
-  appState.focusedNodeId = nodeId;
-  syncView();
+  appState.tableFilter = "all";
+  if (elements.tableFilter) {
+    elements.tableFilter.value = "all";
+  }
+  selectStationAndCenter(stationId, nodeId);
+}
 
-  setDiagramZoom(true);
-  window.requestAnimationFrame(() => {
-    centerDiagramOnNode(nodeId);
-  });
-  window.setTimeout(() => centerDiagramOnNode(nodeId), 120);
-  window.setTimeout(() => centerDiagramOnNode(nodeId), 280);
+function getDisplayNodes(station) {
+  return station.nodes.filter((node) => node.kind !== "label");
+}
+
+function getDefaultFocusNodeId(station) {
+  const latestParsed = appState.parsedFeed.find((item) => item.stationId === station.id);
+  if (latestParsed?.nodeId) return latestParsed.nodeId;
+
+  const candidates = getMonitoredNodes(station)
+    .slice()
+    .sort((a, b) => {
+      const severityDiff = severityRank(b.alertLevel) - severityRank(a.alertLevel);
+      if (severityDiff !== 0) return severityDiff;
+      return b.lastUpdatedAt - a.lastUpdatedAt;
+    });
+  return candidates[0]?.id ?? null;
+}
+
+function centerAcrossResultPanels(nodeId, shouldZoomDiagram = false) {
+  if (!nodeId) {
+    elements.parsedFeed.scrollTo({ top: 0, behavior: "smooth" });
+    elements.tableWrap?.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  if (shouldZoomDiagram) {
+    setDiagramZoom(true);
+  }
+
+  window.requestAnimationFrame(() => centerDiagramOnNode(nodeId));
+  window.setTimeout(() => centerDiagramOnNode(nodeId), 200);
+  window.setTimeout(() => centerDiagramOnNode(nodeId), 420);
+  window.setTimeout(() => centerDiagramOnNode(nodeId), 680);
+
+  const parsedTarget = elements.parsedFeed.querySelector(`[data-node-id="${nodeId}"]`);
+  if (parsedTarget) {
+    parsedTarget.scrollIntoView({ block: "center", behavior: "smooth" });
+  } else {
+    elements.parsedFeed.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const tableTarget = elements.statusTableBody.querySelector(`[data-node-id="${nodeId}"]`);
+  if (tableTarget) {
+    tableTarget.scrollIntoView({ block: "center", behavior: "smooth" });
+  } else {
+    elements.tableWrap?.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
+function selectStationAndCenter(stationId, preferredNodeId = null) {
+  const station = appState.stations.find((item) => item.id === stationId);
+  if (!station) return;
+  appState.selectedStationId = station.id;
+  appState.focusedNodeId = preferredNodeId ?? getDefaultFocusNodeId(station);
+  syncView();
+  centerAcrossResultPanels(appState.focusedNodeId, true);
 }
 
 function startDiagramDrag(event) {
@@ -633,8 +687,7 @@ function renderStationCards(searchTerm = "") {
 
   document.querySelectorAll("[data-station-card]").forEach((button) => {
     button.addEventListener("click", () => {
-      appState.selectedStationId = button.dataset.stationCard;
-      syncView();
+      selectStationAndCenter(button.dataset.stationCard);
     });
   });
 }
@@ -697,7 +750,7 @@ function buildMessageThumbnail(lines) {
 function buildSourceDiagramPreview(station) {
   const breakers = getMonitoredNodes(station).filter((node) => node.kind === "breaker").slice(0, 4);
   const voltages = getMonitoredNodes(station).filter((node) => node.kind === "voltage").slice(0, 2);
-  const branchXs = [116, 184, 252, 320];
+  const branchXs = [134, 202, 270, 338];
 
   const breakerMarkup = breakers
     .map((node, index) => {
@@ -705,8 +758,8 @@ function buildSourceDiagramPreview(station) {
       const color = node.alertLevel === "critical" ? "#fb923c" : node.alertLevel === "warning" ? "#facc15" : node.status === "closed" ? "#ef4444" : "#22c55e";
       const label = node.label.split(" ")[0];
       return `
-        <text x="${x - 18}" y="34" fill="#ff6767" font-size="10" font-weight="700">${label}</text>
-        <text x="${x - 14}" y="50" fill="#7bf7a7" font-size="9">${node.status === "closed" ? "1" : "0"}.0</text>
+        <text x="${x - 16}" y="40" fill="#ff7d6f" font-size="9" font-weight="700">${label}</text>
+        <text x="${x - 12}" y="56" fill="#8bf5ac" font-size="8.5">${node.status === "closed" ? "1" : "0"}.0</text>
         <line x1="${x}" y1="56" x2="${x}" y2="134" stroke="#eef4ff" stroke-width="2" />
         <circle cx="${x}" cy="86" r="8" fill="none" stroke="${color}" stroke-width="2.2" />
         <line x1="${x - 5}" y1="86" x2="${x + 5}" y2="86" stroke="${color}" stroke-width="2" stroke-linecap="round" />
@@ -716,7 +769,7 @@ function buildSourceDiagramPreview(station) {
 
   const voltageMarkup = voltages
     .map((node, index) => {
-      const x = index === 0 ? 172 : 286;
+      const x = index === 0 ? 184 : 300;
       const valueColor = node.status === "zero" ? "#fb923c" : "#34d2ff";
       return `
         <rect x="${x - 28}" y="164" width="56" height="28" rx="8" fill="rgba(15,35,58,0.88)" stroke="${valueColor}" stroke-width="2" />
@@ -729,15 +782,15 @@ function buildSourceDiagramPreview(station) {
   return `
     <svg class="source-diagram-svg" viewBox="0 0 420 248" aria-hidden="true">
       <rect x="0" y="0" width="420" height="248" rx="16" fill="#02070d" />
-      <rect x="12" y="12" width="84" height="76" rx="10" fill="none" stroke="#28e06c" stroke-dasharray="4 3" />
+      <rect x="12" y="12" width="102" height="84" rx="10" fill="none" stroke="#28e06c" stroke-dasharray="4 3" />
       <text x="18" y="30" fill="#d7efff" font-size="10" font-weight="700">${station.name}</text>
-      <text x="18" y="48" fill="#88f7ab" font-size="9">一次接线图原始画面</text>
-      <line x1="94" y1="56" x2="338" y2="56" stroke="#eef4ff" stroke-width="2.4" />
-      <line x1="94" y1="136" x2="338" y2="136" stroke="#eef4ff" stroke-width="2.4" />
+      <text x="18" y="48" fill="#88f7ab" font-size="8.5">一次接线图原始画面</text>
+      <line x1="108" y1="56" x2="352" y2="56" stroke="#eef4ff" stroke-width="2.4" />
+      <line x1="108" y1="136" x2="352" y2="136" stroke="#eef4ff" stroke-width="2.4" />
       ${breakerMarkup}
       ${voltageMarkup}
-      <line x1="356" y1="32" x2="356" y2="208" stroke="#28e06c" stroke-width="1.6" stroke-dasharray="5 4" />
-      <text x="386" y="86" fill="#ff6767" font-size="16" font-weight="700" transform="rotate(90 386 86)">${station.name}</text>
+      <line x1="360" y1="32" x2="360" y2="208" stroke="#28e06c" stroke-width="1.6" stroke-dasharray="5 4" />
+      <text x="394" y="84" fill="#ff7d6f" font-size="14" font-weight="700" transform="rotate(90 394 84)">${station.name}</text>
     </svg>
   `;
 }
@@ -753,10 +806,12 @@ function getProcessVisualMarkup(stage, scenario) {
   if (stage.id === "capture") {
     return `
       <div class="process-visual process-visual-capture">
-        <div class="process-scene">
-          ${buildMessageThumbnail(scenario.captureLines)}
-          <div class="process-scan-overlay"></div>
-          <div class="process-caption">从上到下循环扫描源屏缩略图，持续截取报文</div>
+        <div class="process-scene capture-scene">
+          <div class="process-capture-frame">
+            ${buildMessageThumbnail(scenario.captureLines)}
+            <div class="process-scan-overlay"></div>
+          </div>
+          <div class="process-caption">沿上下往返路径扫描源屏缩略图，持续截取报文</div>
         </div>
       </div>
     `;
@@ -834,14 +889,17 @@ function getProcessVisualMarkup(stage, scenario) {
 function renderProcessBoard() {
   const scenario = getCurrentProcessDemo();
   const currentPhase = appState.processDemoPhase;
+  const scenarioIndexText = String(appState.processDemoScenarioIndex);
+  const needsFullRender = elements.processBoard.dataset.scenarioIndex !== scenarioIndexText;
 
-  elements.processBoard.innerHTML = processStepTemplate
-    .map(
-      (stage, index) => `
-      <article class="process-step process-${index < currentPhase ? "completed" : index === currentPhase ? "active" : "pending"}">
+  if (needsFullRender) {
+    elements.processBoard.innerHTML = processStepTemplate
+      .map(
+        (stage, index) => `
+      <article class="process-step" data-index="${index}">
         <div class="process-head">
           <span class="process-index">0${index + 1}</span>
-          <span class="process-status">${index === currentPhase ? "处理中" : index < currentPhase ? "已完成" : "等待"}</span>
+          <span class="process-status">等待</span>
         </div>
         <strong>${stage.title}</strong>
         <p>${stage.desc}</p>
@@ -849,33 +907,59 @@ function renderProcessBoard() {
         <div class="process-screen">${stage.screen}</div>
       </article>
     `
-    )
-    .join("");
+      )
+      .join("");
 
-  elements.processNarrative.innerHTML = `
-    <div class="process-copy">
-      <strong>${scenario.title}</strong>
-      <div>站点：${scenario.stationName}</div>
-      <div>来源屏幕：${scenario.sourceScreen}</div>
-      <div>${scenario.sampleText}</div>
-    </div>
-  `;
+    elements.processNarrative.innerHTML = `
+      <div class="process-copy">
+        <strong>${scenario.title}</strong>
+        <div>站点：${scenario.stationName}</div>
+        <div>来源屏幕：${scenario.sourceScreen}</div>
+        <div>${scenario.sampleText}</div>
+      </div>
+    `;
 
-  elements.processResult.innerHTML = `
-    <div class="process-copy">
-      <strong>统一状态中心</strong>
-      <div>${scenario.resultText}</div>
-    </div>
-    <div class="process-tags">
-      ${scenario.resultTags.map((tag) => `<span class="process-tag">${tag}</span>`).join("")}
-    </div>
-  `;
+    elements.processResult.innerHTML = `
+      <div class="process-copy">
+        <strong>统一状态中心</strong>
+        <div>${scenario.resultText}</div>
+      </div>
+      <div class="process-tags">
+        ${scenario.resultTags.map((tag) => `<span class="process-tag">${tag}</span>`).join("")}
+      </div>
+    `;
+
+    elements.processBoard.dataset.scenarioIndex = scenarioIndexText;
+  }
+
+  const stepItems = elements.processBoard.querySelectorAll(".process-step");
+  stepItems.forEach((step, index) => {
+    step.classList.remove("process-completed", "process-active", "process-pending");
+    const statusEl = step.querySelector(".process-status");
+
+    if (index < currentPhase) {
+      step.classList.add("process-completed");
+      if (statusEl) statusEl.textContent = "已完成";
+      return;
+    }
+
+    if (index === currentPhase) {
+      step.classList.add("process-active");
+      if (statusEl) statusEl.textContent = "处理中";
+      return;
+    }
+
+    step.classList.add("process-pending");
+    if (statusEl) statusEl.textContent = "等待";
+  });
 }
 
 function startProcessDemoLoop() {
   if (appState.processDemoHandle) {
     window.clearInterval(appState.processDemoHandle);
   }
+
+  renderProcessBoard();
 
   appState.processDemoHandle = window.setInterval(() => {
     if (appState.processDemoPhase >= processStepTemplate.length - 1) {
@@ -885,13 +969,13 @@ function startProcessDemoLoop() {
       appState.processDemoPhase += 1;
     }
     renderProcessBoard();
-  }, 1700);
+  }, 3600);
 }
 
 function renderSourceScreens() {
   const station = getSelectedStation();
   const monitoredNodes = getMonitoredNodes(station);
-  const latestMessages = appState.rawFeed.slice(0, 4);
+  const latestMessages = appState.rawFeed.filter((item) => item.stationId === station.id).slice(0, 6);
 
   elements.sourceDiagramScreen.innerHTML = `
     ${buildSourceDiagramPreview(station)}
@@ -902,8 +986,8 @@ function renderSourceScreens() {
       .map(
         (message) => `
       <div class="source-message-line">
-        [${formatTime(message.timestamp)}] ${message.stationName}<br />
-        ${message.humanText}
+        [${formatTime(message.timestamp)}] #${String(message.seq).padStart(4, "0")} ${message.stationName}<br />
+        ${message.apdu}
       </div>
     `
       )
@@ -911,7 +995,7 @@ function renderSourceScreens() {
 
   elements.sourceTableScreen.innerHTML =
     monitoredNodes
-      .slice(0, 5)
+      .slice(0, 6)
       .map(
         (node) => `
       <article class="source-table-row">
@@ -1195,18 +1279,20 @@ function bindTooltip(group, station, node) {
 }
 
 function renderRawFeed() {
+  if (!elements.rawFeed) return;
+  const stationId = appState.selectedStationId;
+  const feedItems = appState.rawFeed.filter((item) => item.stationId === stationId).slice(0, 6);
   elements.rawFeed.innerHTML =
-    appState.rawFeed
+    feedItems
       .map(
         (item) => `
-      <article class="feed-item raw ${severityClass(item.severity)}">
+      <article class="feed-item raw compact ${severityClass(item.severity)}" data-node-id="${item.nodeId}">
         <div class="feed-item-header">
           <strong>#${String(item.seq).padStart(4, "0")} ${item.stationName}</strong>
           <span class="feed-meta">${formatTime(item.timestamp)}</span>
         </div>
         <p>${item.humanText}</p>
-        <div class="feed-meta">${item.fieldText}</div>
-        <p>${item.apdu}</p>
+        <div class="feed-meta">${item.apdu}</div>
         <div class="raw-meta">
           <span class="raw-chip">CA ${item.stationCa}</span>
           <span class="raw-chip">IOA ${item.ioa}</span>
@@ -1220,17 +1306,20 @@ function renderRawFeed() {
 }
 
 function renderParsedFeed() {
+  if (!elements.parsedFeed) return;
+  const stationId = appState.selectedStationId;
+  const feedItems = appState.parsedFeed.filter((item) => item.stationId === stationId).slice(0, 6);
   elements.parsedFeed.innerHTML =
-    appState.parsedFeed
+    feedItems
       .map(
         (item) => `
-      <article class="feed-item parsed ${severityClass(item.severity)}">
+      <article class="feed-item parsed compact ${severityClass(item.severity)} ${appState.focusedNodeId === item.nodeId ? "targeted" : ""}" data-node-id="${item.nodeId}">
         <div class="feed-item-header">
-          <strong>${item.stationName}</strong>
+          <strong>${item.nodeLabel}</strong>
           <span class="confidence">置信度 ${item.confidence}%</span>
         </div>
         <p>${item.summary}</p>
-        <div class="feed-meta">${item.fieldText}</div>
+        <div class="feed-meta">${item.stationName} · ${item.bay}</div>
         <div class="raw-meta">
           <span class="raw-chip">${item.typeName}</span>
           <span class="raw-chip">CA ${item.stationCa}</span>
@@ -1247,7 +1336,7 @@ function renderParsedFeed() {
 
 function renderStatusTable() {
   const station = getSelectedStation();
-  const nodes = getMonitoredNodes(station)
+  const nodes = getDisplayNodes(station)
     .filter((node) => {
       if (appState.tableFilter === "abnormal") return node.alertLevel !== "normal";
       if (appState.tableFilter === "breaker") return node.kind === "breaker";
@@ -1260,7 +1349,7 @@ function renderStatusTable() {
       return b.lastUpdatedAt - a.lastUpdatedAt;
     });
 
-  const summary = getMonitoredNodes(station).reduce(
+  const summary = getDisplayNodes(station).reduce(
     (acc, node) => {
       acc[node.alertLevel] += 1;
       return acc;
@@ -1276,10 +1365,10 @@ function renderStatusTable() {
     nodes
       .map(
         (node) => `
-      <tr class="${severityClass(node.alertLevel)}">
+      <tr class="${severityClass(node.alertLevel)} ${appState.focusedNodeId === node.id ? "targeted" : ""}" data-node-id="${node.id}">
         <td>${node.label}</td>
         <td>${node.bay}</td>
-        <td>${node.ioa}</td>
+        <td>${node.ioa ?? "--"}</td>
         <td><span class="state-chip ${severityClass(node.alertLevel)}">${describeNodeStatus(node)}</span></td>
         <td><span class="severity-pill ${severityClass(node.alertLevel)}">${severityLabel(node.alertLevel)}</span></td>
         <td>${formatTime(node.lastUpdatedAt)}</td>
@@ -1319,7 +1408,8 @@ function renderAnomalyCards() {
 }
 
 function updateCvMeta(entry) {
-  elements.cvMeta.textContent = `结果 02 · 最近识别 ${entry.stationName} · IOA ${entry.ioa} · ${severityLabel(entry.severity)}`;
+  if (!elements.cvMeta) return;
+  elements.cvMeta.textContent = "结果 02 · CV 理解";
 }
 
 function syncView() {
@@ -1367,6 +1457,9 @@ function parseMessage(message) {
   const parsedEntry = {
     stationId: station.id,
     stationName: station.name,
+    nodeId: node.id,
+    nodeLabel: node.label,
+    bay: node.bay,
     stationCa: station.ca,
     ioa: node.ioa,
     qds: node.qds,
@@ -1441,9 +1534,17 @@ function attachEvents() {
     renderStationCards(event.target.value);
   });
 
+  elements.stationSearch.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const keyword = event.currentTarget.value.trim().toLowerCase();
+    if (!keyword) return;
+    const match = appState.stations.find((station) => station.name.toLowerCase().includes(keyword));
+    if (!match) return;
+    selectStationAndCenter(match.id);
+  });
+
   elements.stationSelect.addEventListener("change", (event) => {
-    appState.selectedStationId = event.target.value;
-    syncView();
+    selectStationAndCenter(event.target.value);
   });
 
   elements.tableFilter.addEventListener("change", (event) => {
