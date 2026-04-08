@@ -8,7 +8,7 @@ const speedProfiles = [
 
 const processStepTemplate = [
   { id: "capture", title: "屏幕抓取", desc: "从报文屏持续截取最新画面", screen: "屏幕 02" },
-  { id: "detect", title: "区域定位", desc: "框出需要识别的报文行与关键字段", screen: "CV" },
+  { id: "detect", title: "区域定位", desc: "框出对应报文行并定位关键字段", screen: "CV" },
   { id: "ocr", title: "内容识别", desc: "读出设备名、数值、状态和时间", screen: "CV" },
   { id: "parse", title: "状态解释", desc: "把识别结果转成设备状态含义", screen: "CV" },
   { id: "sync", title: "结果展示", desc: "同步更新接线图和状态表", screen: "屏幕 01 / 03" },
@@ -554,14 +554,6 @@ function centerDiagramOnNode(nodeId) {
   });
 }
 
-function focusNodeFromTimeline(stationId, nodeId) {
-  appState.tableFilter = "all";
-  if (elements.tableFilter) {
-    elements.tableFilter.value = "all";
-  }
-  selectStationAndCenter(stationId, nodeId);
-}
-
 function getDisplayNodes(station) {
   return station.nodes.filter((node) => node.kind !== "label");
 }
@@ -580,45 +572,19 @@ function getDefaultFocusNodeId(station) {
   return candidates[0]?.id ?? null;
 }
 
-function centerAcrossResultPanels(nodeId, shouldZoomDiagram = false) {
-  if (!nodeId) {
-    elements.parsedFeed.scrollTo({ top: 0, behavior: "smooth" });
-    elements.tableWrap?.scrollTo({ top: 0, behavior: "smooth" });
-    return;
-  }
-
-  if (shouldZoomDiagram) {
-    setDiagramZoom(true);
-  }
-
-  window.requestAnimationFrame(() => centerDiagramOnNode(nodeId));
-  window.setTimeout(() => centerDiagramOnNode(nodeId), 200);
-  window.setTimeout(() => centerDiagramOnNode(nodeId), 420);
-  window.setTimeout(() => centerDiagramOnNode(nodeId), 680);
-
-  const parsedTarget = elements.parsedFeed.querySelector(`[data-node-id="${nodeId}"]`);
-  if (parsedTarget) {
-    parsedTarget.scrollIntoView({ block: "center", behavior: "smooth" });
-  } else {
-    elements.parsedFeed.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  const tableTarget = elements.statusTableBody.querySelector(`[data-node-id="${nodeId}"]`);
-  if (tableTarget) {
-    tableTarget.scrollIntoView({ block: "center", behavior: "smooth" });
-  } else {
-    elements.tableWrap?.scrollTo({ top: 0, behavior: "smooth" });
-  }
-}
-
-function selectStationAndCenter(stationId, preferredNodeId = null) {
-  const station = appState.stations.find((item) => item.id === stationId);
-  if (!station) return;
-  appState.selectedStationId = station.id;
-  appState.focusedNodeId = preferredNodeId ?? getDefaultFocusNodeId(station);
-  syncView();
-  centerAcrossResultPanels(appState.focusedNodeId, true);
-}
+const {
+  centerAcrossResultPanels,
+  selectStationAndCenter,
+  executeSearchStyleJump,
+  focusNodeFromTimeline,
+} = window.createJumpController({
+  appState,
+  elements,
+  syncView,
+  getDefaultFocusNodeId,
+  setDiagramZoom,
+  centerDiagramOnNode,
+});
 
 function startDiagramDrag(event) {
   if (!appState.diagramZoomed) return;
@@ -687,7 +653,7 @@ function renderStationCards(searchTerm = "") {
 
   document.querySelectorAll("[data-station-card]").forEach((button) => {
     button.addEventListener("click", () => {
-      selectStationAndCenter(button.dataset.stationCard);
+      executeSearchStyleJump(button.dataset.stationCard);
     });
   });
 }
@@ -736,12 +702,15 @@ function getScenarioShortLine(scenario) {
   return scenario.captureLines[1] ?? scenario.captureLines[0] ?? "等待示例";
 }
 
-function buildMessageThumbnail(lines) {
+function buildMessageThumbnail(lines, options = {}) {
+  const { fill = false, singleLine = false } = options;
+  const sourceLines =
+    fill && lines.length > 0 ? Array.from({ length: 8 }, (_, index) => lines[index % lines.length]) : lines;
   return `
     <div class="process-thumb process-thumb-message">
       <div class="process-thumb-bar"></div>
-      <div class="process-thumb-lines">
-        ${lines.map((line) => `<div class="process-thumb-line">${line}</div>`).join("")}
+      <div class="process-thumb-lines ${singleLine ? "single-line" : ""}">
+        ${sourceLines.map((line) => `<div class="process-thumb-line">${line}</div>`).join("")}
       </div>
     </div>
   `;
@@ -808,10 +777,9 @@ function getProcessVisualMarkup(stage, scenario) {
       <div class="process-visual process-visual-capture">
         <div class="process-scene capture-scene">
           <div class="process-capture-frame">
-            ${buildMessageThumbnail(scenario.captureLines)}
+            ${buildMessageThumbnail(scenario.captureLines, { fill: true })}
             <div class="process-scan-overlay"></div>
           </div>
-          <div class="process-caption">沿上下往返路径扫描源屏缩略图，持续截取报文</div>
         </div>
       </div>
     `;
@@ -822,11 +790,11 @@ function getProcessVisualMarkup(stage, scenario) {
       <div class="process-visual process-visual-detect">
         <div class="process-scene detect-scene">
           <div class="process-thumb-wrap">
-            ${buildMessageThumbnail(scenario.captureLines)}
+            ${buildMessageThumbnail(scenario.captureLines, { singleLine: true })}
             <span class="roi-frame"></span>
           </div>
           <div class="process-zoom-card tone-${tone}">
-            <div class="zoom-label">定位区域放大</div>
+            <div class="zoom-label">对应报文行</div>
             <div class="zoom-line">${zoomLine}</div>
           </div>
         </div>
@@ -859,9 +827,12 @@ function getProcessVisualMarkup(stage, scenario) {
           <div class="parse-raw-block">
             ${scenario.ocrLines.slice(0, 3).map((line) => `<div class="parse-raw-line">${line}</div>`).join("")}
           </div>
-          <div class="parse-arrow">→</div>
+          <div class="parse-arrow"><span>↓</span></div>
           <div class="parse-chip-stack">
-            ${scenario.parseChips.map((chip) => `<span class="process-parse-chip">${chip}</span>`).join("")}
+            ${scenario.parseChips
+              .slice(0, 3)
+              .map((chip) => `<span class="process-parse-chip">${chip}</span>`)
+              .join("")}
           </div>
         </div>
       </div>
@@ -1540,11 +1511,11 @@ function attachEvents() {
     if (!keyword) return;
     const match = appState.stations.find((station) => station.name.toLowerCase().includes(keyword));
     if (!match) return;
-    selectStationAndCenter(match.id);
+    executeSearchStyleJump(match.id);
   });
 
   elements.stationSelect.addEventListener("change", (event) => {
-    selectStationAndCenter(event.target.value);
+    executeSearchStyleJump(event.target.value);
   });
 
   elements.tableFilter.addEventListener("change", (event) => {

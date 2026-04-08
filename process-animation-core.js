@@ -1,5 +1,5 @@
 /**
- * CV 识别动态演示（主干提取版）
+ * CV 识别动态演示（主干提取版 - 优化版）
  *
  * 用途：
  * 1) 作为独立“动画主干”交给其他 agent/代码生成器 修改。
@@ -9,11 +9,12 @@
  * - JS 主干：步骤模板、视觉卡片渲染、流程渲染、轮播调度。
  * - CSS 主干：流程卡和关键动画（扫描/ROI/OCR/解析/同步）。
  * - 性能优化：已解耦 DOM 生成与状态更新，并强制开启 GPU 加速避免重绘抽搐。
+ * - 修改记录：已完全移除第一个动画中的描述文字。
  */
 
 export const processStepTemplateCore = [
   { id: "capture", title: "屏幕抓取", desc: "从报文屏持续截取最新画面", screen: "屏幕 02" },
-  { id: "detect", title: "区域定位", desc: "框出需要识别的报文行与关键字段", screen: "CV" },
+  { id: "detect", title: "区域定位", desc: "框出对应报文行并定位关键字段", screen: "CV" },
   { id: "ocr", title: "内容识别", desc: "读出设备名、数值、状态和时间", screen: "CV" },
   { id: "parse", title: "状态解释", desc: "把识别结果转成设备状态含义", screen: "CV" },
   { id: "sync", title: "结果展示", desc: "同步更新接线图和状态表", screen: "屏幕 01 / 03" },
@@ -29,12 +30,15 @@ export function getScenarioShortLineCore(scenario) {
   return scenario.captureLines[1] ?? scenario.captureLines[0] ?? "等待示例";
 }
 
-export function buildMessageThumbnailCore(lines) {
+export function buildMessageThumbnailCore(lines, options = {}) {
+  const { fill = false } = options;
+  const sourceLines =
+    fill && lines.length > 0 ? Array.from({ length: 8 }, (_, index) => lines[index % lines.length]) : lines;
   return `
     <div class="process-thumb process-thumb-message">
       <div class="process-thumb-bar"></div>
       <div class="process-thumb-lines">
-        ${lines.map((line) => `<div class="process-thumb-line">${line}</div>`).join("")}
+        ${sourceLines.map((line) => `<div class="process-thumb-line">${line}</div>`).join("")}
       </div>
     </div>
   `;
@@ -49,10 +53,9 @@ export function getProcessVisualMarkupCore(stage, scenario) {
       <div class="process-visual process-visual-capture">
         <div class="process-scene capture-scene">
           <div class="process-capture-frame">
-            ${buildMessageThumbnailCore(scenario.captureLines)}
+            ${buildMessageThumbnailCore(scenario.captureLines, { fill: true })}
             <div class="process-scan-overlay"></div>
           </div>
-          <div class="process-caption">沿上下往返路径扫描源屏缩略图，持续截取报文</div>
         </div>
       </div>
     `;
@@ -67,7 +70,7 @@ export function getProcessVisualMarkupCore(stage, scenario) {
             <span class="roi-frame"></span>
           </div>
           <div class="process-zoom-card tone-${tone}">
-            <div class="zoom-label">定位区域放大</div>
+            <div class="zoom-label">对应报文行</div>
             <div class="zoom-line">${zoomLine}</div>
           </div>
         </div>
@@ -98,9 +101,12 @@ export function getProcessVisualMarkupCore(stage, scenario) {
           <div class="parse-raw-block">
             ${scenario.ocrLines.slice(0, 3).map((line) => `<div class="parse-raw-line">${line}</div>`).join("")}
           </div>
-          <div class="parse-arrow">→</div>
+          <div class="parse-arrow"><span>↓</span></div>
           <div class="parse-chip-stack">
-            ${scenario.parseChips.map((chip) => `<span class="process-parse-chip">${chip}</span>`).join("")}
+            ${scenario.parseChips
+              .slice(0, 3)
+              .map((chip) => `<span class="process-parse-chip">${chip}</span>`)
+              .join("")}
           </div>
         </div>
       </div>

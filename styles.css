@@ -845,15 +845,15 @@ button.secondary {
 }
 
 .station-pill.good {
-  background: rgba(34, 197, 94, 0.16);
-  color: #17784a;
-  border: 1px solid rgba(34, 197, 94, 0.18);
+  background: rgba(34, 197, 94, 0.2);
+  color: #0f6b41;
+  border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .station-pill.warn {
-  background: rgba(250, 204, 21, 0.18);
-  color: #9a6700;
-  border: 1px solid rgba(250, 204, 21, 0.2);
+  background: rgba(250, 204, 21, 0.24);
+  color: #8d5d00;
+  border: 1px solid rgba(250, 204, 21, 0.3);
 }
 
 .process-demo-card {
@@ -925,14 +925,16 @@ button.secondary {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  background: rgba(56, 189, 248, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.14);
-  color: #c4ecff;
+  background: rgba(45, 127, 249, 0.16);
+  border: 1px solid rgba(45, 127, 249, 0.3);
+  color: #2f65bf;
 }
 
 .process-visual {
   position: relative;
+  height: 230px;
   min-height: 230px;
+  max-height: 230px;
   border-radius: 16px;
   border: 1px solid rgba(119, 170, 214, 0.1);
   background:
@@ -947,6 +949,8 @@ button.secondary {
   inset: 10px;
   display: grid;
   gap: 10px;
+  opacity: 1;
+  transition: opacity 220ms ease;
 }
 
 .capture-scene {
@@ -980,16 +984,28 @@ button.secondary {
 .process-thumb-lines {
   padding: 0 10px 10px;
   display: grid;
-  gap: 5px;
+  gap: 4px;
+  align-content: start;
 }
 
 .process-thumb-line {
   font-family: "IBM Plex Mono", monospace;
-  font-size: 9px;
+  font-size: 10px;
+  line-height: 1.35;
   color: #edf7ff;
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.process-thumb-lines.single-line .process-thumb-line {
+  display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.45;
 }
 
 .process-scan-overlay {
@@ -1045,6 +1061,9 @@ button.secondary {
 
 .parse-scene {
   position: relative;
+  grid-template-rows: minmax(0, 1fr) 34px auto;
+  gap: 8px;
+  align-content: stretch;
 }
 
 .sync-scene {
@@ -1058,13 +1077,14 @@ button.secondary {
 
 .roi-frame {
   position: absolute;
-  left: 14%;
-  right: 14%;
-  top: 46%;
-  height: 28px;
-  border-radius: 8px;
+  left: 10%;
+  right: 10%;
+  top: 43px;
+  height: 20px;
+  border-radius: 7px;
   border: 2px solid rgba(56, 189, 248, 0.86);
-  box-shadow: 0 0 14px rgba(56, 189, 248, 0.18);
+  background: rgba(56, 189, 248, 0.08);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.28);
   will-change: transform, opacity;
   animation: roi-pulse calc(var(--process-motion-duration) * 0.86) var(--process-motion-ease) infinite;
 }
@@ -1108,6 +1128,9 @@ button.secondary {
   font-family: "IBM Plex Mono", monospace;
   font-size: 9px;
   line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ocr-scene .process-zoom-card,
@@ -1138,7 +1161,7 @@ button.secondary {
   opacity: 0.28;
   transform: translateX(-6px);
   will-change: transform, opacity;
-  animation: ocr-line-reveal calc(var(--process-motion-duration) * 1.1) var(--process-motion-ease) infinite;
+  animation: ocr-line-reveal calc(var(--process-motion-duration) * 0.8) var(--process-motion-ease) infinite;
 }
 
 .ocr-sheet-line.line-2 {
@@ -1154,7 +1177,7 @@ button.secondary {
 }
 
 .parse-raw-block {
-  min-height: 116px;
+  min-height: 98px;
   padding: 10px;
   border-radius: 14px;
   border: 1px solid rgba(119, 170, 214, 0.12);
@@ -1172,39 +1195,55 @@ button.secondary {
 }
 
 .parse-arrow {
+  position: relative;
+  width: 100%;
+  height: 34px;
+  overflow: hidden;
+}
+
+.parse-arrow span {
   position: absolute;
-  left: calc(50% - 10px);
-  top: calc(50% - 12px);
-  font-size: 22px;
+  top: -2px;
+  left: 16%;
+  transform: translateX(-50%);
+  font-size: 36px;
+  line-height: 1;
   color: #7dc9ff;
-  animation: arrow-flow calc(var(--process-motion-duration) * 0.62) ease-in-out infinite;
-  display: block;
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+  animation: arrow-flow calc(var(--process-motion-duration) * 0.95) ease-in-out infinite;
+  will-change: left, opacity;
 }
 
 .parse-chip-stack {
-  min-height: 116px;
-  padding: 10px;
+  min-height: 74px;
+  padding: 8px;
   border-radius: 14px;
   border: 1px solid rgba(119, 170, 214, 0.12);
   background: linear-gradient(180deg, rgba(15, 35, 58, 0.94), rgba(9, 22, 38, 0.94));
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   align-content: center;
+  align-items: center;
 }
 
 .process-parse-chip {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  padding: 8px 10px;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 7px 8px;
   border-radius: 999px;
   background: rgba(56, 189, 248, 0.1);
   border: 1px solid rgba(56, 189, 248, 0.14);
   color: #d5efff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   will-change: transform, opacity;
-  animation: chip-glow var(--process-motion-duration) ease-in-out infinite;
+  animation: chip-glow calc(var(--process-motion-duration) * 0.8) ease-in-out infinite;
 }
 
 .process-parse-chip:nth-child(2) {
@@ -1221,7 +1260,7 @@ button.secondary {
 
 .sync-card {
   min-height: 116px;
-  padding: 10px 8px;
+  padding: 12px 10px;
   border-radius: 12px;
   border: 1px solid rgba(119, 170, 214, 0.12);
   background:
@@ -1252,13 +1291,13 @@ button.secondary {
 
 .sync-card-title {
   margin-bottom: 8px;
-  font-size: 10px;
+  font-size: 11px;
   color: #8fc2f2;
   font-weight: 700;
 }
 
 .sync-card span {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1.4;
   color: #eef8ff;
@@ -1292,6 +1331,7 @@ button.secondary {
 .process-step .process-zoom-card,
 .process-step .ocr-sheet-line,
 .process-step .parse-arrow,
+.process-step .parse-arrow span,
 .process-step .process-parse-chip,
 .process-step .sync-card {
   animation-play-state: paused;
@@ -1304,6 +1344,7 @@ button.secondary {
 .process-active .process-zoom-card,
 .process-active .ocr-sheet-line,
 .process-active .parse-arrow,
+.process-active .parse-arrow span,
 .process-active .process-parse-chip,
 .process-active .sync-card {
   animation-play-state: running;
@@ -1315,10 +1356,17 @@ button.secondary {
 .process-completed .process-zoom-card,
 .process-completed .ocr-sheet-line,
 .process-completed .parse-arrow,
+.process-completed .parse-arrow span,
 .process-completed .process-parse-chip,
 .process-completed .sync-card {
   animation-play-state: paused;
-  opacity: 0.6;
+  opacity: 0;
+}
+
+/* Only the active step shows visual content; others keep only the dark background panel. */
+.process-step:not(.process-active) .process-scene {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .process-brief {
@@ -1375,9 +1423,9 @@ button.secondary {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
-  background: rgba(45, 127, 249, 0.08);
-  border: 1px solid rgba(45, 127, 249, 0.14);
-  color: #2f6bca;
+  background: rgba(45, 127, 249, 0.16);
+  border: 1px solid rgba(45, 127, 249, 0.28);
+  color: #275cb4;
 }
 
 .diagram-legend {
@@ -1588,13 +1636,14 @@ button.secondary {
 }
 
 .raw-chip {
-  background: rgba(56, 189, 248, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.14);
-  color: #2a6fb1;
+  background: rgba(45, 127, 249, 0.16);
+  border: 1px solid rgba(45, 127, 249, 0.32);
+  color: #1f5ea6;
+  font-weight: 700;
 }
 
 .confidence {
-  color: #c4ecff;
+  color: #2c6dbf;
   font-weight: 700;
 }
 
@@ -1720,34 +1769,34 @@ tbody tr.targeted {
 .severity-normal,
 .state-chip.severity-normal,
 .severity-pill.severity-normal {
-  color: #1c8f5b;
+  color: #146b44;
 }
 
 .severity-warning,
 .state-chip.severity-warning,
 .severity-pill.severity-warning {
-  color: #b66b00;
+  color: #8e5600;
 }
 
 .severity-critical,
 .state-chip.severity-critical,
 .severity-pill.severity-critical {
-  color: #cf6418;
+  color: #a84f10;
 }
 
 .state-chip.severity-normal,
 .severity-pill.severity-normal {
-  background: rgba(24, 169, 87, 0.12);
+  background: rgba(24, 169, 87, 0.2);
 }
 
 .state-chip.severity-warning,
 .severity-pill.severity-warning {
-  background: rgba(182, 107, 0, 0.12);
+  background: rgba(182, 107, 0, 0.2);
 }
 
 .state-chip.severity-critical,
 .severity-pill.severity-critical {
-  background: rgba(207, 100, 24, 0.12);
+  background: rgba(207, 100, 24, 0.22);
 }
 
 .payload-preview {
@@ -1918,11 +1967,11 @@ tbody tr.targeted {
     opacity: 0.55;
   }
   45% {
-    transform: translateY(calc(100% - 38px));
+    transform: translateY(150px);
     opacity: 1;
   }
   50% {
-    transform: translateY(calc(100% - 38px));
+    transform: translateY(150px);
     opacity: 0.95;
   }
   95% {
@@ -1983,26 +2032,57 @@ tbody tr.targeted {
 }
 
 @keyframes arrow-flow {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: translateX(-2px);
+  0% {
+    left: 16%;
+    opacity: 0;
   }
-  50% {
+  8% {
+    left: 16%;
+    opacity: 0.95;
+  }
+  24% {
+    left: 16%;
     opacity: 1;
-    transform: translateX(4px);
+  }
+  40% {
+    left: 50%;
+    opacity: 0.95;
+  }
+  56% {
+    left: 50%;
+    opacity: 1;
+  }
+  72% {
+    left: 84%;
+    opacity: 0.95;
+  }
+  88% {
+    left: 84%;
+    opacity: 1;
+  }
+  96% {
+    left: 84%;
+    opacity: 0;
+  }
+  100% {
+    left: 16%;
+    opacity: 0;
   }
 }
 
 @keyframes sync-pulse {
   0%,
   100% {
-    box-shadow: inset 0 0 0 0 rgba(56, 189, 248, 0.16);
-    transform: translateY(0);
+    box-shadow:
+      inset 0 0 0 1px rgba(56, 189, 248, 0.22),
+      0 0 0 rgba(56, 189, 248, 0);
+    transform: translateY(0) scale(1);
   }
   50% {
-    box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.28), 0 0 18px rgba(56, 189, 248, 0.12);
-    transform: translateY(-2px);
+    box-shadow:
+      inset 0 0 0 1px rgba(56, 189, 248, 0.34),
+      0 0 26px rgba(56, 189, 248, 0.28);
+    transform: translateY(-2px) scale(1.05);
   }
 }
 
