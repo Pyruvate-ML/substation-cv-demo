@@ -554,6 +554,13 @@ function centerDiagramOnNode(nodeId) {
   });
 }
 
+function centerScrollableOnElement(container, target) {
+  if (!container || !target) return;
+  const targetTop = target.offsetTop + target.offsetHeight / 2;
+  const top = Math.max(0, targetTop - container.clientHeight / 2);
+  container.scrollTo({ top, behavior: "auto" });
+}
+
 function focusNodeFromTimeline(stationId, nodeId) {
   appState.tableFilter = "all";
   if (elements.tableFilter) {
@@ -582,32 +589,34 @@ function getDefaultFocusNodeId(station) {
 
 function centerAcrossResultPanels(nodeId, shouldZoomDiagram = false) {
   if (!nodeId) {
-    elements.parsedFeed.scrollTo({ top: 0, behavior: "smooth" });
-    elements.tableWrap?.scrollTo({ top: 0, behavior: "smooth" });
+    elements.parsedFeed.scrollTo({ top: 0, behavior: "auto" });
+    elements.tableWrap?.scrollTo({ top: 0, behavior: "auto" });
     return;
   }
 
   if (shouldZoomDiagram) {
+    // Always normalize viewport before centering to keep search jump and card jump aligned.
+    setDiagramZoom(false);
     setDiagramZoom(true);
   }
 
   window.requestAnimationFrame(() => centerDiagramOnNode(nodeId));
-  window.setTimeout(() => centerDiagramOnNode(nodeId), 200);
-  window.setTimeout(() => centerDiagramOnNode(nodeId), 420);
-  window.setTimeout(() => centerDiagramOnNode(nodeId), 680);
+  window.setTimeout(() => centerDiagramOnNode(nodeId), 180);
+  window.setTimeout(() => centerDiagramOnNode(nodeId), 360);
+  window.setTimeout(() => centerDiagramOnNode(nodeId), 620);
 
   const parsedTarget = elements.parsedFeed.querySelector(`[data-node-id="${nodeId}"]`);
   if (parsedTarget) {
-    parsedTarget.scrollIntoView({ block: "center", behavior: "smooth" });
+    centerScrollableOnElement(elements.parsedFeed, parsedTarget);
   } else {
-    elements.parsedFeed.scrollTo({ top: 0, behavior: "smooth" });
+    elements.parsedFeed.scrollTo({ top: 0, behavior: "auto" });
   }
 
   const tableTarget = elements.statusTableBody.querySelector(`[data-node-id="${nodeId}"]`);
   if (tableTarget) {
-    tableTarget.scrollIntoView({ block: "center", behavior: "smooth" });
+    centerScrollableOnElement(elements.tableWrap, tableTarget);
   } else {
-    elements.tableWrap?.scrollTo({ top: 0, behavior: "smooth" });
+    elements.tableWrap?.scrollTo({ top: 0, behavior: "auto" });
   }
 }
 
