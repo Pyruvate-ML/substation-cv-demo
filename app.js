@@ -21,6 +21,13 @@ const API_ENDPOINTS = {
   reportGenerate: "/api/report/generate",
 };
 
+function buildApiHint(path) {
+  if (API_BASE_URL) return "";
+  const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  if (isLocalHost) return "";
+  return `；当前API_BASE_URL为空，线上部署请在URL追加 ?api_base=https://your-api-domain 或设置 localStorage demo_api_base_url。失败接口：${path}`;
+}
+
 const SOURCE_FRAME_INTERVAL_MS = 2200;
 const OCR_CAPTURE_BUFFER_MS = 760;
 const OCR_REGION_TIMEOUT_MS = 5000;
@@ -586,26 +593,36 @@ function renderOcrAuditSession() {
 }
 
 async function postJson(path, payload) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    throw new Error(`网络请求失败: ${path}${buildApiHint(path)} ${error?.message || ""}`.trim());
+  }
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `请求失败: ${path}`);
+    throw new Error((text || `请求失败: ${path}`) + buildApiHint(path));
   }
   return response.json();
 }
 
 async function postForm(path, formData) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
-    body: formData,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      body: formData,
+    });
+  } catch (error) {
+    throw new Error(`网络请求失败: ${path}${buildApiHint(path)} ${error?.message || ""}`.trim());
+  }
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `请求失败: ${path}`);
+    throw new Error((text || `请求失败: ${path}`) + buildApiHint(path));
   }
   return response.json();
 }

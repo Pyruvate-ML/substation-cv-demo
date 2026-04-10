@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import ssl
+import time
 from pathlib import Path
 from urllib import error as urlerror
 from urllib import request as urlrequest
@@ -20,6 +21,7 @@ class OcrService:
         self.api_key = self._get_env_value("DASHSCOPE_API_KEY", "")
         self.model = self._get_env_value("DASHSCOPE_OCR_MODEL", "qwen-vl-ocr")
         self.timeout_sec = int(self._get_env_value("DASHSCOPE_TIMEOUT_SEC", "45") or "45")
+        self.max_retries = int(self._get_env_value("DASHSCOPE_RETRIES", "2") or "2")
         self.backend = "dashscope-vl-ocr"
         self.ssl_context = self._build_ssl_context()
 
@@ -69,23 +71,44 @@ class OcrService:
 
     def _post_chat(self, payload: dict) -> dict:
         api_url = f"{self.base_url.rstrip('/')}/chat/completions"
-        req = urlrequest.Request(
-            api_url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            },
-            method="POST",
-        )
-        try:
-            with urlrequest.urlopen(req, timeout=self.timeout_sec, context=self.ssl_context) as resp:
-                raw = resp.read().decode("utf-8")
-                return json.loads(raw)
-        except (urlerror.HTTPError, urlerror.URLError, TimeoutError, json.JSONDecodeError, OSError, ssl.SSLError) as exc:
-            raise HTTPException(status_code=502, detail=f"OCR云服务调用失败: {exc}") from exc
-        except Exception as exc:  # noqa: BLE001
-            raise HTTPException(status_code=502, detail=f"OCR云服务调用失败: {exc}") from exc
+        last_error: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            req = urlrequest.Request(
+                api_url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}",
+                },
+                method="POST",
+            )
+            try:
+                with urlrequest.urlopen(req, timeout=self.timeout_sec, context=self.ssl_context) as resp:
+                    raw = resp.read().decode("utf-8")
+                    return json.loads(raw)
+            except urlerror.HTTPError as exc:
+                status = int(getattr(exc, "code", 0) or 0)
+                body = ""
+                try:
+                    body = exc.read().decode("utf-8")[:220]
+                except Exception:  # noqa: BLE001
+                    body = ""
+                last_error = Exception(f"HTTP {status} {body}".strip())
+                if attempt < self.max_retries and status in (429, 500, 502, 503, 504):
+                    time.sleep(0.4 * (attempt + 1))
+                    continue
+                break
+            except (urlerror.URLError, TimeoutError, json.JSONDecodeError, OSError, ssl.SSLError) as exc:
+                last_error = exc
+                if attempt < self.max_retries:
+                    time.sleep(0.4 * (attempt + 1))
+                    continue
+                break
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                break
+
+        raise HTTPException(status_code=502, detail=f"OCR云服务调用失败: {last_error}")
 
     @staticmethod
     def _extract_message_text(payload: dict) -> str:

@@ -8,6 +8,7 @@ import shlex
 import subprocess
 import tempfile
 import ssl
+import time
 from functools import lru_cache
 from datetime import datetime
 from pathlib import Path
@@ -38,6 +39,7 @@ class PipelineService:
         self.dashscope_text_model = self._get_env_value("DASHSCOPE_TEXT_MODEL", "qwen-turbo")
         self.dashscope_asr_model = self._get_env_value("DASHSCOPE_ASR_MODEL", "qwen3-asr-flash")
         self.dashscope_timeout_sec = int(self._get_env_value("DASHSCOPE_TIMEOUT_SEC", "45") or "45")
+        self.dashscope_retries = int(self._get_env_value("DASHSCOPE_RETRIES", "2") or "2")
         self.ssl_context = self._build_ssl_context()
         self.mlx_model_name = self._get_env_value("MLX_MODEL", "mlx-community/Qwen2.5-0.5B-Instruct-4bit")
         self.mlx_max_tokens = int(self._get_env_value("MLX_MAX_TOKENS", "512") or "512")
@@ -396,19 +398,34 @@ OCR 文本：{payload.ocr_text or "未提供"}
 
     def _call_dashscope_chat(self, payload: dict) -> str:
         api_url = f"{self.dashscope_base_url.rstrip('/')}/chat/completions"
-        try:
-            req = urlrequest.Request(
-                api_url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {self.dashscope_api_key}",
-                },
-                method="POST",
-            )
-            with urlrequest.urlopen(req, timeout=self.dashscope_timeout_sec, context=self.ssl_context) as response:
-                body = json.loads(response.read().decode("utf-8"))
-        except (urlerror.URLError, TimeoutError, json.JSONDecodeError, OSError):
+        body: dict | None = None
+        for attempt in range(self.dashscope_retries + 1):
+            try:
+                req = urlrequest.Request(
+                    api_url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {self.dashscope_api_key}",
+                    },
+                    method="POST",
+                )
+                with urlrequest.urlopen(req, timeout=self.dashscope_timeout_sec, context=self.ssl_context) as response:
+                    body = json.loads(response.read().decode("utf-8"))
+                    break
+            except urlerror.HTTPError as exc:
+                status = int(getattr(exc, "code", 0) or 0)
+                if attempt < self.dashscope_retries and status in (429, 500, 502, 503, 504):
+                    time.sleep(0.4 * (attempt + 1))
+                    continue
+                return ""
+            except (urlerror.URLError, TimeoutError, json.JSONDecodeError, OSError):
+                if attempt < self.dashscope_retries:
+                    time.sleep(0.4 * (attempt + 1))
+                    continue
+                return ""
+
+        if body is None:
             return ""
 
         choices = body.get("choices") or []

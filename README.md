@@ -54,7 +54,7 @@ cp .env.local.example .env.local
 ```
 
 必填：`DASHSCOPE_API_KEY`。  
-建议：`ALLOW_ORIGINS` 设置为你的前端域名（逗号分隔）。
+建议：`ALLOW_ORIGINS` 设置为你的前端域名（逗号分隔），`DASHSCOPE_RETRIES=2` 用于云接口瞬时失败重试。
 
 3. 启动后端服务：
 
