@@ -128,6 +128,11 @@ npm run test:ocr -- --cycles=3
    - 推荐：访问 URL 带 `?api_base=https://<你的后端域名>`
    - 或在前端打包时注入 `window.__DEMO_API_BASE_URL__`
 
+Render 一键部署：
+- 仓库已提供 `render.yaml`
+- 在 Render 使用 `Blueprint` 导入仓库即可
+- 只需在 Render 环境变量中补填 `DASHSCOPE_API_KEY`
+
 ## 后端接口（已重构）
 
 当前后端已拆分为 `backend/routers + backend/services + backend/models`，便于后续封装和扩展。

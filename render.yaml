@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: substation-cv-demo-api
+    runtime: python
+    plan: free
+    rootDir: .
+    buildCommand: pip install -r requirements-ocr.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DASHSCOPE_API_KEY
+        sync: false
+      - key: DASHSCOPE_BASE_URL
+        value: https://dashscope.aliyuncs.com/compatible-mode/v1
+      - key: DASHSCOPE_OCR_MODEL
+        value: qwen-vl-ocr
+      - key: DASHSCOPE_ASR_MODEL
+        value: qwen3-asr-flash
+      - key: DASHSCOPE_TEXT_MODEL
+        value: qwen-turbo
+      - key: DASHSCOPE_TIMEOUT_SEC
+        value: "45"
+      - key: DASHSCOPE_RETRIES
+        value: "2"
+      - key: ALLOW_ORIGINS
+        value: https://pyruvate-ml.github.io
