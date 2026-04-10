@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import base64
 import shlex
 import subprocess
 import tempfile
+import ssl
 from functools import lru_cache
 from datetime import datetime
 from pathlib import Path
@@ -31,6 +33,12 @@ from backend.models import (
 class PipelineService:
     def __init__(self) -> None:
         self.local_env = self._read_local_env_file()
+        self.dashscope_base_url = self._get_env_value("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+        self.dashscope_api_key = self._get_env_value("DASHSCOPE_API_KEY", "")
+        self.dashscope_text_model = self._get_env_value("DASHSCOPE_TEXT_MODEL", "qwen-turbo")
+        self.dashscope_asr_model = self._get_env_value("DASHSCOPE_ASR_MODEL", "qwen3-asr-flash")
+        self.dashscope_timeout_sec = int(self._get_env_value("DASHSCOPE_TIMEOUT_SEC", "45") or "45")
+        self.ssl_context = self._build_ssl_context()
         self.mlx_model_name = self._get_env_value("MLX_MODEL", "mlx-community/Qwen2.5-0.5B-Instruct-4bit")
         self.mlx_max_tokens = int(self._get_env_value("MLX_MAX_TOKENS", "512") or "512")
         self.mlx_whisper_model = self._get_env_value("MLX_WHISPER_MODEL", "mlx-community/whisper-tiny")
@@ -56,7 +64,7 @@ class PipelineService:
             audio_path = Path(handle.name)
 
         try:
-            transcript_text, note, raw_segments = self._transcribe_with_local_stack(audio_path)
+            transcript_text, note, raw_segments = self._transcribe_with_dashscope(audio_path, suffix)
         finally:
             audio_path.unlink(missing_ok=True)
 
@@ -234,6 +242,37 @@ class PipelineService:
 
         return "", "本地 ASR 未配置，可通过 whisper.cpp、MLX Whisper 或 LOCAL_ASR_COMMAND 接入。", []
 
+    def _transcribe_with_dashscope(self, audio_path: Path, suffix: str) -> tuple[str, str, list[dict[str, object]]]:
+        if not self.dashscope_api_key:
+            return "", "未配置 DASHSCOPE_API_KEY。", []
+        try:
+            audio_bytes = audio_path.read_bytes()
+        except OSError:
+            return "", "读取音频文件失败。", []
+        if not audio_bytes:
+            return "", "音频内容为空。", []
+
+        audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+        audio_format = self._audio_format_from_suffix(suffix)
+        payload = {
+            "model": self.dashscope_asr_model,
+            "temperature": 0,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "请将这段中文语音转写为简体中文，只输出转写文本。"},
+                        {"type": "input_audio", "input_audio": {"data": audio_b64, "format": audio_format}},
+                    ],
+                }
+            ],
+        }
+        content = self._call_dashscope_chat(payload)
+        cleaned = self._normalize_transcript_text(content)
+        if not cleaned:
+            return "", f"DashScope ASR 未返回有效文本（{self.dashscope_asr_model}）。", []
+        return cleaned, f"已通过 DashScope ASR 完成转写（{self.dashscope_asr_model}）。", []
+
     def _transcribe_with_mlx_whisper(self, audio_path: Path) -> tuple[str, str, list[dict[str, object]]]:
         try:
             import mlx_whisper
@@ -339,10 +378,76 @@ OCR 文本：{payload.ocr_text or "未提供"}
         return self._call_local_llm(prompt, system_prompt="你是调控业务报告助手，请输出正式中文 Markdown。")
 
     def _call_local_llm(self, prompt: str, system_prompt: str = "") -> str:
-        mlx_result = self._call_mlx(prompt, system_prompt=system_prompt)
-        if mlx_result:
-            return mlx_result
-        return self._call_ollama(prompt, system_prompt=system_prompt)
+        dashscope_result = self._call_dashscope_text(prompt, system_prompt=system_prompt)
+        return dashscope_result
+
+    def _call_dashscope_text(self, prompt: str, system_prompt: str = "") -> str:
+        if not self.dashscope_api_key:
+            return ""
+        payload = {
+            "model": self.dashscope_text_model,
+            "temperature": 0.2,
+            "messages": [
+                {"role": "system", "content": system_prompt or "你是一个可靠的中文助手。"},
+                {"role": "user", "content": prompt},
+            ],
+        }
+        return self._call_dashscope_chat(payload)
+
+    def _call_dashscope_chat(self, payload: dict) -> str:
+        api_url = f"{self.dashscope_base_url.rstrip('/')}/chat/completions"
+        try:
+            req = urlrequest.Request(
+                api_url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.dashscope_api_key}",
+                },
+                method="POST",
+            )
+            with urlrequest.urlopen(req, timeout=self.dashscope_timeout_sec, context=self.ssl_context) as response:
+                body = json.loads(response.read().decode("utf-8"))
+        except (urlerror.URLError, TimeoutError, json.JSONDecodeError, OSError):
+            return ""
+
+        choices = body.get("choices") or []
+        if not choices:
+            return ""
+        message = choices[0].get("message") or {}
+        content = message.get("content", "")
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, dict) and item.get("text"):
+                    parts.append(str(item["text"]))
+            return "\n".join(parts).strip()
+        return str(content or "").strip()
+
+    @staticmethod
+    def _audio_format_from_suffix(suffix: str) -> str:
+        ext = (suffix or "").lower().lstrip(".")
+        mapping = {
+            "wav": "wav",
+            "mp3": "mp3",
+            "m4a": "m4a",
+            "mp4": "m4a",
+            "ogg": "ogg",
+            "webm": "webm",
+            "flac": "flac",
+        }
+        return mapping.get(ext, "wav")
+
+    @staticmethod
+    def _build_ssl_context():
+        try:
+            import certifi
+
+            return ssl.create_default_context(cafile=certifi.where())
+        except Exception:  # noqa: BLE001
+            return ssl.create_default_context()
 
     def _call_mlx(self, prompt: str, system_prompt: str = "") -> str:
         try:

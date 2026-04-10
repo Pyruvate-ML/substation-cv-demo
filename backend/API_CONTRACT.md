@@ -3,7 +3,7 @@
 ## 1) OCR
 
 ### `GET /api/ocr/health`
-- Response: `{"status":"ok","backend":"rapidocr|paddleocr"}`
+- Response: `{"status":"ok","backend":"dashscope-vl-ocr"}`
 
 ### `POST /api/ocr/recognize`
 - FormData: `image=<file>`
@@ -15,15 +15,15 @@
   "line_count": 3,
   "lines": ["..."],
   "full_text": "...",
-  "backend": "rapidocr"
+  "backend": "dashscope-vl-ocr"
 }
 ```
 
-## 2) ASR (Placeholder)
+## 2) ASR
 
 ### `POST /api/asr/transcribe`
 - FormData: `audio=<file>`
-- Response includes placeholder note until real ASR is connected.
+- Response includes transcript text from DashScope ASR model.
 
 ## 3) Voice -> Official Application
 
@@ -73,9 +73,8 @@
 
 Returns one-line verdict and reason.
 
-## 6) Report Generation (Placeholder)
+## 6) Report Generation
 
 ### `POST /api/report/generate`
 - Combines transcript, OCR text and consistency result into Markdown.
-- Current implementation is template-based and ready to be replaced by LLM.
-
+- 当前实现会优先调用 DashScope 文本模型生成报告，失败时自动回退模板报告。

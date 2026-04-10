@@ -36,7 +36,7 @@ python3 -m http.server 8080
 
 然后访问 `http://localhost:8080`。
 
-## 启用本地 OCR 服务（RapidOCR 默认）
+## 启用后端服务（云端模型版）
 
 1. 安装依赖（建议 Python 3.10+）：
 
@@ -47,7 +47,16 @@ source .venv/bin/activate
 pip install -r requirements-ocr.txt
 ```
 
-2. 启动本地 OCR 服务：
+2. 配置环境变量（复制模板）：
+
+```bash
+cp .env.local.example .env.local
+```
+
+必填：`DASHSCOPE_API_KEY`。  
+建议：`ALLOW_ORIGINS` 设置为你的前端域名（逗号分隔）。
+
+3. 启动后端服务：
 
 ```bash
 uvicorn backend.main:app --host 127.0.0.1 --port 8765 --reload
@@ -59,7 +68,7 @@ uvicorn backend.main:app --host 127.0.0.1 --port 8765 --reload
 uvicorn ocr_server:app --host 127.0.0.1 --port 8765 --reload
 ```
 
-3. 本地打开网页（必须是本地 `http://localhost`，不要直接用 GitHub Pages）：
+4. 本地打开网页：
 
 ```bash
 python3 -m http.server 8080
@@ -96,8 +105,28 @@ npm run test:ocr -- --cycles=3
 项目里也保留了兼容脚本 `npm run debug:auto -- --cycles=3`。
 如果要切回旧的旁路对照模式，可显式传 `--mode=direct`。
 
-说明：
-- GitHub Pages 是 `https://`，浏览器会拦截它调用你本机 `http://127.0.0.1:8765` 的请求，所以真实本地 OCR 需要在本地 HTTP 环境运行网页。
+前端 API 地址规则：
+- 本地（`localhost`）默认走 `http://127.0.0.1:8765`
+- 非本地默认走同域 `"/api"`（即 `API_BASE_URL=""`）
+- 也可显式指定：
+  - URL 参数：`?api_base=https://your-api-domain`
+  - 控制台设置：`localStorage.setItem("demo_api_base_url","https://your-api-domain")`
+
+## 云端部署（完全脱离本地）
+
+目标：别人直接打开网页即可体验全部功能（OCR/ASR/报告）。
+
+1. 部署后端（FastAPI）到公网（Render/Railway/Fly.io/ECS 等）
+2. 在后端环境变量配置：
+   - `DASHSCOPE_API_KEY`
+   - `DASHSCOPE_OCR_MODEL=qwen-vl-ocr`
+   - `DASHSCOPE_ASR_MODEL=qwen3-asr-flash`
+   - `DASHSCOPE_TEXT_MODEL=qwen-turbo`
+   - `ALLOW_ORIGINS=https://<你的前端域名>`
+3. 部署前端（GitHub Pages/Vercel/静态托管）
+4. 让前端指向云端后端：
+   - 推荐：访问 URL 带 `?api_base=https://<你的后端域名>`
+   - 或在前端打包时注入 `window.__DEMO_API_BASE_URL__`
 
 ## 后端接口（已重构）
 
@@ -113,7 +142,7 @@ npm run test:ocr -- --cycles=3
   - `POST /api/decision/allowance`
   - `POST /api/report/generate`
 
-## 接入本地开源小模型
+## （可选）本地开源模型回退
 
 当前版本支持在后端通过本地模型完成以下能力：
 

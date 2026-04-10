@@ -1,6 +1,17 @@
 const STABLE_QDS = "IV0 NT0 SB0 BL0";
 const AUTO_OCR_MODE = "real";
-const API_BASE_URL = "http://127.0.0.1:8765";
+function resolveApiBaseUrl() {
+  const search = new URLSearchParams(window.location.search);
+  const fromQuery = String(search.get("api_base") || "").trim();
+  const fromRuntime = String(window.__DEMO_API_BASE_URL__ || "").trim();
+  const fromStorage = String(window.localStorage.getItem("demo_api_base_url") || "").trim();
+  if (fromQuery) return fromQuery;
+  if (fromRuntime) return fromRuntime;
+  if (fromStorage) return fromStorage;
+  const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  return isLocalHost ? "http://127.0.0.1:8765" : "";
+}
+const API_BASE_URL = resolveApiBaseUrl();
 const API_ENDPOINTS = {
   ocrRecognize: "/api/ocr/recognize",
   asrTranscribe: "/api/asr/transcribe",
